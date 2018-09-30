@@ -8,13 +8,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
-from torch.autograd import Variable
 
-from maskmm import utils
+from utils import image_utils, utils, visualize
 
-from maskmm.datagen.dataset import Dataset
-from maskmm.datagen.head_targets import gen_targets
-from maskmm.datagen.anchors import generate_pyramid_anchors
+from datagen.dataset import Dataset
+from datagen.head_targets import gen_targets
+from datagen.anchors import generate_pyramid_anchors
 
 from .rpn import RPN
 from .proposals import proposals
@@ -66,11 +65,12 @@ class MaskRCNN(nn.Module):
         self.fpn = FPN(C1, C2, C3, C4, C5, out_channels=256)
 
         # Generate Anchors
-        self.anchors = Variable(torch.from_numpy(generate_pyramid_anchors(config.RPN_ANCHOR_SCALES,
-                                                                                config.RPN_ANCHOR_RATIOS,
-                                                                                config.BACKBONE_SHAPES,
-                                                                                config.BACKBONE_STRIDES,
-                                                                                config.RPN_ANCHOR_STRIDE)).float(), requires_grad=False)
+        with torch.no_grad():
+            self.anchors = torch.from_numpy(generate_pyramid_anchors(config.RPN_ANCHOR_SCALES,
+                                                                    config.RPN_ANCHOR_RATIOS,
+                                                                    config.BACKBONE_SHAPES,
+                                                                    config.BACKBONE_STRIDES,
+                                                                    config.RPN_ANCHOR_STRIDE)).float()
         if self.config.GPU_COUNT:
             self.anchors = self.anchors.cuda()
 
@@ -97,7 +97,7 @@ class MaskRCNN(nn.Module):
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.xavier_uniform(m.weight)
+                nn.init.xavier_uniform_(m.weight)
                 if m.bias is not None:
                     m.bias.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):
@@ -211,14 +211,12 @@ class MaskRCNN(nn.Module):
         molded_images, image_metas, windows = self.mold_inputs(images)
 
         # Convert images to torch tensor
-        molded_images = torch.from_numpy(molded_images.transpose(0, 3, 1, 2)).float()
+        with torch.no_grad():
+            molded_images = torch.from_numpy(molded_images.transpose(0, 3, 1, 2)).float()
 
         # To GPU
         if self.config.GPU_COUNT:
             molded_images = molded_images.cuda()
-
-        # Wrap in variable
-        molded_images = Variable(molded_images, volatile=True)
 
         # Run object detection
         detections, mrcnn_mask = self.predict([molded_images, image_metas], mode='inference')
@@ -302,7 +300,8 @@ class MaskRCNN(nn.Module):
             # TODO: let DetectionLayer return normalized coordinates to avoid
             #       unnecessary conversions
             h, w = self.config.IMAGE_SHAPE[:2]
-            scale = Variable(torch.from_numpy(np.array([h, w, h, w])).float(), requires_grad=False)
+            with torch.no_grad():
+                scale = torch.from_numpy(np.array([h, w, h, w])).float()
             if self.config.GPU_COUNT:
                 scale = scale.cuda()
             detection_boxes = detections[:, :4] / scale
@@ -327,7 +326,8 @@ class MaskRCNN(nn.Module):
 
             # Normalize coordinates
             h, w = self.config.IMAGE_SHAPE[:2]
-            scale = Variable(torch.from_numpy(np.array([h, w, h, w])).float(), requires_grad=False)
+            with torch.no_grad():
+                scale = torch.from_numpy(np.array([h, w, h, w])).float()
             if self.config.GPU_COUNT:
                 scale = scale.cuda()
             gt_boxes = gt_boxes / scale
@@ -340,10 +340,10 @@ class MaskRCNN(nn.Module):
                 gen_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, self.config)
 
             if not rois.size():
-                mrcnn_class_logits = Variable(torch.FloatTensor())
-                mrcnn_class = Variable(torch.IntTensor())
-                mrcnn_bbox = Variable(torch.FloatTensor())
-                mrcnn_mask = Variable(torch.FloatTensor())
+                mrcnn_class_logits = torch.FloatTensor()
+                mrcnn_class = torch.IntTensor()
+                mrcnn_bbox = torch.FloatTensor()
+                mrcnn_mask = torch.FloatTensor()
                 if self.config.GPU_COUNT:
                     mrcnn_class_logits = mrcnn_class_logits.cuda()
                     mrcnn_class = mrcnn_class.cuda()
@@ -424,7 +424,7 @@ class MaskRCNN(nn.Module):
             # Statistics
             self.loss_history.append([loss, loss_rpn_class, loss_rpn_bbox, loss_mrcnn_class, loss_mrcnn_bbox, loss_mrcnn_mask])
             self.val_loss_history.append([val_loss, val_loss_rpn_class, val_loss_rpn_bbox, val_loss_mrcnn_class, val_loss_mrcnn_bbox, val_loss_mrcnn_mask])
-            utils.visualize.plot_loss(self.loss_history, self.val_loss_history, save=True, log_dir=self.log_dir)
+            visualize.plot_loss(self.loss_history, self.val_loss_history, save=True, log_dir=self.log_dir)
 
             # Save model
             torch.save(self.state_dict(), self.checkpoint_path.format(epoch))
@@ -458,14 +458,6 @@ class MaskRCNN(nn.Module):
 
             # image_metas as numpy array
             image_metas = image_metas.numpy()
-
-            # Wrap in variables
-            images = Variable(images)
-            rpn_match = Variable(rpn_match)
-            rpn_bbox = Variable(rpn_bbox)
-            gt_class_ids = Variable(gt_class_ids)
-            gt_boxes = Variable(gt_boxes)
-            gt_masks = Variable(gt_masks)
 
             # To GPU
             if self.config.GPU_COUNT:
@@ -536,14 +528,6 @@ class MaskRCNN(nn.Module):
             # image_metas as numpy array
             image_metas = image_metas.numpy()
 
-            # Wrap in variables
-            images = Variable(images, volatile=True)
-            rpn_match = Variable(rpn_match, volatile=True)
-            rpn_bbox = Variable(rpn_bbox, volatile=True)
-            gt_class_ids = Variable(gt_class_ids, volatile=True)
-            gt_boxes = Variable(gt_boxes, volatile=True)
-            gt_masks = Variable(gt_masks, volatile=True)
-
             # To GPU
             if self.config.GPU_COUNT:
                 images = images.cuda()
@@ -606,14 +590,14 @@ class MaskRCNN(nn.Module):
         for image in images:
             # Resize image to fit the model expected size
             # TODO: move resizing to mold_image()
-            molded_image, window, scale, padding = utils.images.resize_image(
+            molded_image, window, scale, padding = image_utils.resize_image(
                 image,
                 min_dim=self.config.IMAGE_MIN_DIM,
                 max_dim=self.config.IMAGE_MAX_DIM,
                 padding=self.config.IMAGE_PADDING)
-            molded_image = utils.images.mold_image(molded_image, self.config)
+            molded_image = image_utils.mold_image(molded_image, self.config)
             # Build image_meta
-            image_meta = utils.images.compose_image_meta(
+            image_meta = image_utils.compose_image_meta(
                 0, image.shape, window,
                 np.zeros([self.config.NUM_CLASSES], dtype=np.int32))
             # Append
@@ -680,7 +664,7 @@ class MaskRCNN(nn.Module):
         full_masks = []
         for i in range(N):
             # Convert neural network mask to full size mask
-            full_mask = utils.images.unmold_mask(masks[i], boxes[i], image_shape)
+            full_mask = image_utils.unmold_mask(masks[i], boxes[i], image_shape)
             full_masks.append(full_mask)
         full_masks = np.stack(full_masks, axis=-1)\
             if full_masks else np.empty((0,) + masks.shape[1:3])

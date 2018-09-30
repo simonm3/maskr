@@ -1,5 +1,5 @@
 import torch.nn as nn
-from maskmm.models import roialign
+from .roialign import roialign
 from maskmm.modules.samepad2d import SamePad2d
 
 class Classifier(nn.Module):

@@ -1,6 +1,5 @@
 
 import torch
-from torch.autograd import Variable
 import torch.nn.functional as F
 from loss.rpn_loss import compute_rpn_class_loss, compute_rpn_bbox_loss
 
@@ -16,7 +15,8 @@ def compute_mrcnn_class_loss(target_class_ids, pred_class_logits):
     if target_class_ids.size():
         loss = F.cross_entropy(pred_class_logits,target_class_ids.long())
     else:
-        loss = Variable(torch.FloatTensor([0]), requires_grad=False)
+        with torch.no_grad():
+            loss = torch.FloatTensor([0])
         if target_class_ids.is_cuda:
             loss = loss.cuda()
 
@@ -45,7 +45,8 @@ def compute_mrcnn_bbox_loss(target_bbox, target_class_ids, pred_bbox):
         # Smooth L1 loss
         loss = F.smooth_l1_loss(pred_bbox, target_bbox)
     else:
-        loss = Variable(torch.FloatTensor([0]), requires_grad=False)
+        with torch.no_grad():
+            loss = torch.FloatTensor([0])
         if target_class_ids.is_cuda:
             loss = loss.cuda()
 
@@ -75,7 +76,8 @@ def compute_mrcnn_mask_loss(target_masks, target_class_ids, pred_masks):
         # Binary cross entropy
         loss = F.binary_cross_entropy(y_pred, y_true)
     else:
-        loss = Variable(torch.FloatTensor([0]), requires_grad=False)
+        with torch.no_grad():
+            loss = torch.FloatTensor([0])
         if target_class_ids.is_cuda:
             loss = loss.cuda()
 

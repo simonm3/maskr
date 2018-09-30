@@ -1,13 +1,5 @@
 import torch
-from torch.autograd import Variable
 from lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
-
-def log2(x):
-    """Implementatin of Log2. Pytorch doesn't have a native implemenation."""
-    ln2 = Variable(torch.log(torch.FloatTensor([2.0])), requires_grad=False)
-    if x.is_cuda:
-        ln2 = ln2.cuda()
-    return torch.log(x) / ln2
 
 def roialign(inputs, pool_size, image_shape):
     """Implements ROI Pooling on multiple levels of the feature pyramid.
@@ -47,10 +39,11 @@ def roialign(inputs, pool_size, image_shape):
     # Equation 1 in the Feature Pyramid Networks paper. Account for
     # the fact that our coordinates are normalized here.
     # e.g. a 224x224 ROI (in pixels) maps to P4
-    image_area = Variable(torch.FloatTensor([float(image_shape[0]*image_shape[1])]), requires_grad=False)
+    with torch.no_grad():
+        image_area = torch.FloatTensor([float(image_shape[0]*image_shape[1])])
     if boxes.is_cuda:
         image_area = image_area.cuda()
-    roi_level = 4 + log2(torch.sqrt(h*w)/(224.0/torch.sqrt(image_area)))
+    roi_level = 4 + torch.log2(torch.sqrt(h*w)/(224.0/torch.sqrt(image_area)))
     roi_level = roi_level.round().int()
     roi_level = roi_level.clamp(2,5)
 
@@ -80,7 +73,8 @@ def roialign(inputs, pool_size, image_shape):
         # Here we use the simplified approach of a single value per bin,
         # which is how it's done in tf.crop_and_resize()
         # Result: [batch * num_boxes, pool_height, pool_width, channels]
-        ind = Variable(torch.zeros(level_boxes.size()[0]),requires_grad=False).int()
+        with torch.no_grad():
+            ind = torch.zeros(level_boxes.size()[0]).int()
         if level_boxes.is_cuda:
             ind = ind.cuda()
         feature_maps[i] = feature_maps[i].unsqueeze(0)  #CropAndResizeFunction needs batch dimension
