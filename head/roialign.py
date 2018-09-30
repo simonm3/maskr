@@ -1,6 +1,6 @@
 import torch
 from torch.autograd import Variable
-from roialign.roi_align.crop_and_resize import CropAndResizeFunction
+from lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
 
 def log2(x):
     """Implementatin of Log2. Pytorch doesn't have a native implemenation."""
@@ -9,7 +9,7 @@ def log2(x):
         ln2 = ln2.cuda()
     return torch.log(x) / ln2
 
-def pyramid_roi_align(inputs, pool_size, image_shape):
+def roialign(inputs, pool_size, image_shape):
     """Implements ROI Pooling on multiple levels of the feature pyramid.
 
     Params:

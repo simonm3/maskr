@@ -1,11 +1,10 @@
 
 import torch
-import torch.utils.data
 from torch.autograd import Variable
 import utils
-from roialign.roi_align.crop_and_resize import CropAndResizeFunction
+from lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
 
-def detection_target_layer(proposals, gt_class_ids, gt_boxes, gt_masks, config):
+def gen_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     """Subsamples proposals and generates target box refinment, class_ids,
     and masks for each.
 
@@ -87,8 +86,8 @@ def detection_target_layer(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         roi_gt_boxes = gt_boxes[roi_gt_box_assignment.data,:]
         roi_gt_class_ids = gt_class_ids[roi_gt_box_assignment.data]
 
-        # Compute bbox refinement for positive ROIs
-        deltas = Variable(utils.box_refinement(positive_rois.data, roi_gt_boxes.data), requires_grad=False)
+        # Compute bbox refinement for positive ROI
+        deltas = Variable(utils.boxes.box_refinement(positive_rois.data, roi_gt_boxes.data), requires_grad=False)
         std_dev = Variable(torch.from_numpy(config.BBOX_STD_DEV).float(), requires_grad=False)
         if config.GPU_COUNT:
             std_dev = std_dev.cuda()

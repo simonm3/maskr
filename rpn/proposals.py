@@ -1,10 +1,10 @@
 import torch
 import numpy as np
 from torch.autograd import Variable
-from boxes import apply_box_deltas, clip_boxes
-from nms.nms_wrapper import nms
+from utils.boxes import apply_box_deltas, clip_boxes
+from lib.nms.nms_wrapper import nms
 
-def proposal_layer(inputs, proposal_count, nms_threshold, anchors, config=None):
+def proposals(inputs, proposal_count, nms_threshold, anchors, config=None):
     """Receives anchor scores and selects a subset to pass as proposals
     to the second stage. Filtering is done based on anchor scores and
     non-max suppression to remove overlaps. It also applies bounding

@@ -1,5 +1,5 @@
 import numpy as np
-import utils
+from utils import boxes
 
 def build_rpn_targets(image_shape, anchors, gt_class_ids, gt_boxes, config):
     """Given the anchors and GT boxes, compute overlaps and identify positive
@@ -30,7 +30,7 @@ def build_rpn_targets(image_shape, anchors, gt_class_ids, gt_boxes, config):
         gt_class_ids = gt_class_ids[non_crowd_ix]
         gt_boxes = gt_boxes[non_crowd_ix]
         # Compute overlaps with crowd boxes [anchors, crowds]
-        crowd_overlaps = utils.compute_overlaps(anchors, crowd_boxes)
+        crowd_overlaps = boxes.compute_overlaps(anchors, crowd_boxes)
         crowd_iou_max = np.amax(crowd_overlaps, axis=1)
         no_crowd_bool = (crowd_iou_max < 0.001)
     else:
@@ -38,7 +38,7 @@ def build_rpn_targets(image_shape, anchors, gt_class_ids, gt_boxes, config):
         no_crowd_bool = np.ones([anchors.shape[0]], dtype=bool)
 
     # Compute overlaps [num_anchors, num_gt_boxes]
-    overlaps = utils.compute_overlaps(anchors, gt_boxes)
+    overlaps = boxes.compute_overlaps(anchors, gt_boxes)
 
     # Match anchors to GT Boxes
     # If an anchor overlaps a GT box with IoU >= 0.7 then it's positive.

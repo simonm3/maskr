@@ -2,9 +2,8 @@
 #  Region Proposal Network
 ############################################################
 
-import torch
 import torch.nn as nn
-from .samepad2d import SamePad2d
+from modules.samepad2d import SamePad2d
 
 class RPN(nn.Module):
     """Builds the model of Region Proposal Network.

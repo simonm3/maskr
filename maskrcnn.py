@@ -11,21 +11,18 @@ import torch.utils.data
 from torch.autograd import Variable
 
 import utils
-import visualize
-from images import mold_image, compose_image_meta
 
 from datagen.dataset import Dataset
-from datagen.head_targets import detection_target_layer
-from datagen.anchors import generate_pyramid_anchors
+from head.gen_targets import gen_targets
+from rpn.gen_anchors import generate_pyramid_anchors
 
-from models.rpn import RPN
-from models.proposals import proposal_layer
-from models.detections import detection_layer
-from models.resnet import ResNet
-from models.resnetFPN import FPN
-from models.head import Classifier, Mask
+from rpn.model import RPN
+from rpn.proposals import proposals
+from backbone.resnet import ResNet
+from backbone.resnetFPN import FPN
+from head.model import Classifier, Mask
 
-from loss.head import compute_losses
+from head.loss import compute_losses
 
 class MaskRCNN(nn.Module):
     """Encapsulates the Mask RCNN model functionality.
@@ -285,11 +282,11 @@ class MaskRCNN(nn.Module):
         # and zero padded.
         proposal_count = self.config.POST_NMS_ROIS_TRAINING if mode == "training" \
             else self.config.POST_NMS_ROIS_INFERENCE
-        rpn_rois = proposal_layer([rpn_class, rpn_bbox],
-                                 proposal_count=proposal_count,
-                                 nms_threshold=self.config.RPN_NMS_THRESHOLD,
-                                 anchors=self.anchors,
-                                 config=self.config)
+        rpn_rois = proposals([rpn_class, rpn_bbox],
+                             proposal_count=proposal_count,
+                             nms_threshold=self.config.RPN_NMS_THRESHOLD,
+                             anchors=self.anchors,
+                             config=self.config)
 
         if mode == 'inference':
             # Network Heads
@@ -298,7 +295,7 @@ class MaskRCNN(nn.Module):
 
             # Detections
             # output is [batch, num_detections, (y1, x1, y2, x2, class_id, score)] in image coordinates
-            detections = detection_layer(self.config, rpn_rois, mrcnn_class, mrcnn_bbox, image_metas)
+            detections = detections(self.config, rpn_rois, mrcnn_class, mrcnn_bbox, image_metas)
 
             # Convert boxes to normalized coordinates
             # TODO: let DetectionLayer return normalized coordinates to avoid
@@ -339,7 +336,7 @@ class MaskRCNN(nn.Module):
             # Note that proposal class IDs, gt_boxes, and gt_masks are zero
             # padded. Equally, returned rois and targets are zero padded.
             rois, target_class_ids, target_deltas, target_mask = \
-                detection_target_layer(rpn_rois, gt_class_ids, gt_boxes, gt_masks, self.config)
+                gen_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, self.config)
 
             if not rois.size():
                 mrcnn_class_logits = Variable(torch.FloatTensor())
@@ -426,7 +423,7 @@ class MaskRCNN(nn.Module):
             # Statistics
             self.loss_history.append([loss, loss_rpn_class, loss_rpn_bbox, loss_mrcnn_class, loss_mrcnn_bbox, loss_mrcnn_mask])
             self.val_loss_history.append([val_loss, val_loss_rpn_class, val_loss_rpn_bbox, val_loss_mrcnn_class, val_loss_mrcnn_bbox, val_loss_mrcnn_mask])
-            visualize.plot_loss(self.loss_history, self.val_loss_history, save=True, log_dir=self.log_dir)
+            utils.visualize.plot_loss(self.loss_history, self.val_loss_history, save=True, log_dir=self.log_dir)
 
             # Save model
             torch.save(self.state_dict(), self.checkpoint_path.format(epoch))
@@ -608,14 +605,14 @@ class MaskRCNN(nn.Module):
         for image in images:
             # Resize image to fit the model expected size
             # TODO: move resizing to mold_image()
-            molded_image, window, scale, padding = utils.resize_image(
+            molded_image, window, scale, padding = utils.images.resize_image(
                 image,
                 min_dim=self.config.IMAGE_MIN_DIM,
                 max_dim=self.config.IMAGE_MAX_DIM,
                 padding=self.config.IMAGE_PADDING)
-            molded_image = mold_image(molded_image, self.config)
+            molded_image = utils.images.mold_image(molded_image, self.config)
             # Build image_meta
-            image_meta = compose_image_meta(
+            image_meta = utils.images.compose_image_meta(
                 0, image.shape, window,
                 np.zeros([self.config.NUM_CLASSES], dtype=np.int32))
             # Append

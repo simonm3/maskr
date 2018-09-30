@@ -1,11 +1,11 @@
 import torch
 from torch.autograd import Variable
 import numpy as np
-import boxes
+from utils import boxes
 import utils
-from nms.nms_wrapper import nms
+from lib.nms.nms_wrapper import nms
 
-def refine_detections(rois, probs, deltas, window, config):
+def image_detections(rois, probs, deltas, window, config):
     """Refine classified proposals and filter overlaps and return final
     detections.
 
@@ -101,7 +101,7 @@ def refine_detections(rois, probs, deltas, window, config):
     return result
 
 
-def detection_layer(config, rois, mrcnn_class, mrcnn_bbox, image_meta):
+def detections(config, rois, mrcnn_class, mrcnn_bbox, image_meta):
     """Takes classified proposal boxes and their bounding box deltas and
     returns the final detection boxes.
 
@@ -114,7 +114,7 @@ def detection_layer(config, rois, mrcnn_class, mrcnn_bbox, image_meta):
 
     _, _, window, _ = utils.parse_image_meta(image_meta)
     window = window[0]
-    detections = refine_detections(rois, mrcnn_class, mrcnn_bbox, window, config)
+    detections = image_detections(rois, mrcnn_class, mrcnn_bbox, window, config)
 
     return detections
 

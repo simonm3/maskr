@@ -1,6 +1,6 @@
 import torch.nn as nn
-from models.roialign import pyramid_roi_align
-from models.samepad2d import SamePad2d
+from head.roialign import roialign
+from modules.samepad2d import SamePad2d
 
 class Classifier(nn.Module):
     def __init__(self, depth, pool_size, image_shape, num_classes):
@@ -21,7 +21,7 @@ class Classifier(nn.Module):
         self.linear_bbox = nn.Linear(1024, num_classes * 4)
 
     def forward(self, x, rois):
-        x = pyramid_roi_align([rois]+x, self.pool_size, self.image_shape)
+        x = roialign([rois] + x, self.pool_size, self.image_shape)
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -60,7 +60,7 @@ class Mask(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x, rois):
-        x = pyramid_roi_align([rois] + x, self.pool_size, self.image_shape)
+        x = roialign([rois] + x, self.pool_size, self.image_shape)
         x = self.conv1(self.padding(x))
         x = self.bn1(x)
         x = self.relu(x)
