@@ -1,5 +1,4 @@
 import torch
-from torch.autograd import Variable
 import numpy as np
 
 def apply_box_deltas(boxes, deltas):
@@ -57,7 +56,7 @@ def bbox_overlaps(boxes1, boxes2):
     x1 = torch.max(b1_x1, b2_x1)[:, 0]
     y2 = torch.min(b1_y2, b2_y2)[:, 0]
     x2 = torch.min(b1_x2, b2_x2)[:, 0]
-    zeros = Variable(torch.zeros(y1.size()[0]), requires_grad=False)
+    zeros = torch.zeros(y1.size()[0])
     if y1.is_cuda:
         zeros = zeros.cuda()
     intersection = torch.max(x2 - x1, zeros) * torch.max(y2 - y1, zeros)

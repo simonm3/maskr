@@ -1,10 +1,29 @@
 import torch
-from torch.autograd import Variable
 import numpy as np
 from maskmm.utils import box_utils, utils, image_utils
 from lib.nms.nms_wrapper import nms
 
-def filter_detections_image(rois, probs, deltas, window, config):
+### utils #########################
+
+def unique1d(tensor):
+    if tensor.size()[0] == 0 or tensor.size()[0] == 1:
+        return tensor
+    tensor = tensor.sort()[0]
+    unique_bool = tensor[1:] != tensor [:-1]
+    first_element = torch.ByteTensor([True])
+    if tensor.is_cuda:
+        first_element = first_element.cuda()
+    unique_bool = torch.cat((first_element, unique_bool),dim=0)
+    return tensor[unique_bool.data]
+
+def intersect1d(tensor1, tensor2):
+    aux = torch.cat((tensor1, tensor2),dim=0)
+    aux = aux.sort()[0]
+    return aux[:-1][(aux[1:] == aux[:-1]).data]
+
+###############################################
+
+def filter_detections(rois, probs, deltas, window, config):
     """Refine classified proposals and filter overlaps and return final
     detections.
 
@@ -27,19 +46,19 @@ def filter_detections_image(rois, probs, deltas, window, config):
     idx = torch.arange(class_ids.size()[0]).long()
     if config.GPU_COUNT:
         idx = idx.cuda()
-    class_scores = probs[idx, class_ids.data]
-    deltas_specific = deltas[idx, class_ids.data]
+    class_scores = probs[idx, class_ids]
+    deltas_specific = deltas[idx, class_ids]
 
     # Apply bounding box deltas
     # Shape: [boxes, (y1, x1, y2, x2)] in normalized coordinates
-    std_dev = Variable(torch.from_numpy(np.reshape(config.RPN_BBOX_STD_DEV, [1, 4])).float(), requires_grad=False)
+    std_dev = torch.from_numpy(np.reshape(config.RPN_BBOX_STD_DEV, [1, 4])).float()
     if config.GPU_COUNT:
         std_dev = std_dev.cuda()
     refined_rois = box_utils.apply_box_deltas(rois, deltas_specific * std_dev)
 
     # Convert coordiates to image domain
     height, width = config.IMAGE_SHAPE[:2]
-    scale = Variable(torch.from_numpy(np.array([height, width, height, width])).float(), requires_grad=False)
+    scale = torch.from_numpy(np.array([height, width, height, width])).float()
     if config.GPU_COUNT:
         scale = scale.cuda()
     refined_rois *= scale
@@ -61,46 +80,46 @@ def filter_detections_image(rois, probs, deltas, window, config):
     keep = torch.nonzero(keep_bool)[:,0]
 
     # Apply per-class NMS
-    pre_nms_class_ids = class_ids[keep.data]
-    pre_nms_scores = class_scores[keep.data]
-    pre_nms_rois = refined_rois[keep.data]
+    pre_nms_class_ids = class_ids[keep]
+    pre_nms_scores = class_scores[keep]
+    pre_nms_rois = refined_rois[keep]
 
-    for i, class_id in enumerate(utils.unique1d(pre_nms_class_ids)):
+    for i, class_id in enumerate(unique1d(pre_nms_class_ids)):
         # Pick detections of this class
         ixs = torch.nonzero(pre_nms_class_ids == class_id)[:,0]
 
         # Sort
-        ix_rois = pre_nms_rois[ixs.data]
+        ix_rois = pre_nms_rois[ixs]
         ix_scores = pre_nms_scores[ixs]
         ix_scores, order = ix_scores.sort(descending=True)
-        ix_rois = ix_rois[order.data,:]
+        ix_rois = ix_rois[order,:]
 
-        class_keep = nms(torch.cat((ix_rois, ix_scores.unsqueeze(1)), dim=1).data, config.DETECTION_NMS_THRESHOLD)
+        class_keep = nms(torch.cat((ix_rois, ix_scores.unsqueeze(1)), dim=1), config.DETECTION_NMS_THRESHOLD)
 
         # Map indicies
-        class_keep = keep[ixs[order[class_keep].data].data]
+        class_keep = keep[ixs[order[class_keep]]]
 
         if i==0:
             nms_keep = class_keep
         else:
-            nms_keep = utils.unique1d(torch.cat((nms_keep, class_keep)))
-    keep = utils.intersect1d(keep, nms_keep)
+            nms_keep = unique1d(torch.cat((nms_keep, class_keep)))
+    keep = intersect1d(keep, nms_keep)
 
     # Keep top detections
     roi_count = config.DETECTION_MAX_INSTANCES
-    top_ids = class_scores[keep.data].sort(descending=True)[1][:roi_count]
-    keep = keep[top_ids.data]
+    top_ids = class_scores[keep].sort(descending=True)[1][:roi_count]
+    keep = keep[top_ids]
 
     # Arrange output as [N, (y1, x1, y2, x2, class_id, score)]
     # Coordinates are in image domain.
-    result = torch.cat((refined_rois[keep.data],
-                        class_ids[keep.data].unsqueeze(1).float(),
-                        class_scores[keep.data].unsqueeze(1)), dim=1)
+    result = torch.cat((refined_rois[keep],
+                        class_ids[keep].unsqueeze(1).float(),
+                        class_scores[keep].unsqueeze(1)), dim=1)
 
     return result
 
 
-def filter_detections(config, rois, mrcnn_class, mrcnn_bbox, image_meta):
+def filter_detections_batch(config, rois, mrcnn_class, mrcnn_bbox, image_meta):
     """Takes classified proposal boxes and their bounding box deltas and
     returns the final detection boxes.
 
@@ -113,7 +132,7 @@ def filter_detections(config, rois, mrcnn_class, mrcnn_bbox, image_meta):
 
     _, _, window, _ = image_utils.parse_image_meta(image_meta)
     window = window[0]
-    detections = filter_detections_image(rois, mrcnn_class, mrcnn_bbox, window, config)
+    detections = filter_detections(rois, mrcnn_class, mrcnn_bbox, window, config)
 
     return detections
 

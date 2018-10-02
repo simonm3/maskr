@@ -9,10 +9,10 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
 
-from utils import image_utils, utils, visualize
+from utils import image_utils, visualize
 
 from datagen.dataset import Dataset
-from datagen.head_targets import gen_targets
+from datagen.head_targets import build_head_targets
 from datagen.anchors import generate_pyramid_anchors
 
 from .rpn import RPN
@@ -20,7 +20,7 @@ from .proposals import proposals
 from .resnet import ResNet
 from .resnetFPN import FPN
 from .head import Classifier, Mask
-from .detections import filter_detections
+from .detections import filter_detections_batch
 
 from maskmm.loss.head_loss import compute_losses
 
@@ -208,7 +208,7 @@ class MaskRCNN(nn.Module):
         """
 
         # Mold inputs to format expected by the neural network
-        molded_images, image_metas, windows = self.mold_inputs(images)
+        molded_images, image_metas, windows = image_utils.mold_inputs(images)
 
         # Convert images to torch tensor
         with torch.no_grad():
@@ -229,8 +229,8 @@ class MaskRCNN(nn.Module):
         results = []
         for i, image in enumerate(images):
             final_rois, final_class_ids, final_scores, final_masks =\
-                self.unmold_detections(detections[i], mrcnn_mask[i],
-                                       image.shape, windows[i])
+                image_utils.unmold_detections(detections[i], mrcnn_mask[i],
+                                         image.shape, windows[i])
             results.append({
                 "rois": final_rois,
                 "class_ids": final_class_ids,
@@ -292,22 +292,22 @@ class MaskRCNN(nn.Module):
             # Proposal classifier and BBox regressor heads
             mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(mrcnn_feature_maps, rpn_rois)
 
-            # Detections
-            # output is [batch, num_detections, (y1, x1, y2, x2, class_id, score)] in image coordinates
-            detections = filter_detections(self.config, rpn_rois, mrcnn_class, mrcnn_bbox, image_metas)
-
-            # Convert boxes to normalized coordinates
-            # TODO: let DetectionLayer return normalized coordinates to avoid
-            #       unnecessary conversions
-            h, w = self.config.IMAGE_SHAPE[:2]
             with torch.no_grad():
-                scale = torch.from_numpy(np.array([h, w, h, w])).float()
-            if self.config.GPU_COUNT:
-                scale = scale.cuda()
-            detection_boxes = detections[:, :4] / scale
+                # Detections
+                # output is [batch, num_detections, (y1, x1, y2, x2, class_id, score)] in image coordinates
+                detections = filter_detections_batch(self.config, rpn_rois, mrcnn_class, mrcnn_bbox, image_metas)
 
-            # Add back batch dimension
-            detection_boxes = detection_boxes.unsqueeze(0)
+                # Convert boxes to normalized coordinates
+                # TODO: let DetectionLayer return normalized coordinates to avoid
+                #       unnecessary conversions
+                h, w = self.config.IMAGE_SHAPE[:2]
+                scale = torch.from_numpy(np.array([h, w, h, w])).float()
+                if self.config.GPU_COUNT:
+                    scale = scale.cuda()
+                detection_boxes = detections[:, :4] / scale
+
+                # Add back batch dimension
+                detection_boxes = detection_boxes.unsqueeze(0)
 
             # Create masks for detections
             mrcnn_mask = self.mask(mrcnn_feature_maps, detection_boxes)
@@ -320,24 +320,24 @@ class MaskRCNN(nn.Module):
 
         elif mode == 'training':
 
-            gt_class_ids = input[2]
-            gt_boxes = input[3]
-            gt_masks = input[4]
-
-            # Normalize coordinates
-            h, w = self.config.IMAGE_SHAPE[:2]
             with torch.no_grad():
-                scale = torch.from_numpy(np.array([h, w, h, w])).float()
-            if self.config.GPU_COUNT:
-                scale = scale.cuda()
-            gt_boxes = gt_boxes / scale
+                gt_class_ids = input[2]
+                gt_boxes = input[3]
+                gt_masks = input[4]
 
-            # Generate detection targets
-            # Subsamples proposals and generates target outputs for training
-            # Note that proposal class IDs, gt_boxes, and gt_masks are zero
-            # padded. Equally, returned rois and targets are zero padded.
-            rois, target_class_ids, target_deltas, target_mask = \
-                gen_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, self.config)
+                # Normalize coordinates
+                h, w = self.config.IMAGE_SHAPE[:2]
+                scale = torch.from_numpy(np.array([h, w, h, w])).float()
+                if self.config.GPU_COUNT:
+                    scale = scale.cuda()
+                gt_boxes = gt_boxes / scale
+
+                # Generate detection targets
+                # Subsamples proposals and generates target outputs for training
+                # Note that proposal class IDs, gt_boxes, and gt_masks are zero
+                # padded. Equally, returned rois and targets are zero padded.
+                rois, target_class_ids, target_deltas, target_mask = \
+                    build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, self.config)
 
             if not rois.size():
                 mrcnn_class_logits = torch.FloatTensor()
@@ -569,107 +569,6 @@ class MaskRCNN(nn.Module):
             step += 1
 
         return loss_sum, loss_rpn_class_sum, loss_rpn_bbox_sum, loss_mrcnn_class_sum, loss_mrcnn_bbox_sum, loss_mrcnn_mask_sum
-
-
-
-    def mold_inputs(self, images):
-        """Takes a list of images and modifies them to the format expected
-        as an input to the neural network.
-        images: List of image matricies [height,width,depth]. Images can have
-            different sizes.
-
-        Returns 3 Numpy matricies:
-        molded_images: [N, h, w, 3]. Images resized and normalized.
-        image_metas: [N, length of meta data]. Details about each image.
-        windows: [N, (y1, x1, y2, x2)]. The portion of the image that has the
-            original image (padding excluded).
-        """
-        molded_images = []
-        image_metas = []
-        windows = []
-        for image in images:
-            # Resize image to fit the model expected size
-            # TODO: move resizing to mold_image()
-            molded_image, window, scale, padding = image_utils.resize_image(
-                image,
-                min_dim=self.config.IMAGE_MIN_DIM,
-                max_dim=self.config.IMAGE_MAX_DIM,
-                padding=self.config.IMAGE_PADDING)
-            molded_image = image_utils.mold_image(molded_image, self.config)
-            # Build image_meta
-            image_meta = image_utils.compose_image_meta(
-                0, image.shape, window,
-                np.zeros([self.config.NUM_CLASSES], dtype=np.int32))
-            # Append
-            molded_images.append(molded_image)
-            windows.append(window)
-            image_metas.append(image_meta)
-        # Pack into arrays
-        molded_images = np.stack(molded_images)
-        image_metas = np.stack(image_metas)
-        windows = np.stack(windows)
-        return molded_images, image_metas, windows
-
-    def unmold_detections(self, detections, mrcnn_mask, image_shape, window):
-        """Reformats the detections of one image from the format of the neural
-        network output to a format suitable for use in the rest of the
-        application.
-
-        detections: [N, (y1, x1, y2, x2, class_id, score)]
-        mrcnn_mask: [N, height, width, num_classes]
-        image_shape: [height, width, depth] Original size of the image before resizing
-        window: [y1, x1, y2, x2] Box in the image where the real image is
-                excluding the padding.
-
-        Returns:
-        boxes: [N, (y1, x1, y2, x2)] Bounding boxes in pixels
-        class_ids: [N] Integer class IDs for each bounding box
-        scores: [N] Float probability scores of the class_id
-        masks: [height, width, num_instances] Instance masks
-        """
-        # How many detections do we have?
-        # Detections array is padded with zeros. Find the first class_id == 0.
-        zero_ix = np.where(detections[:, 4] == 0)[0]
-        N = zero_ix[0] if zero_ix.shape[0] > 0 else detections.shape[0]
-
-        # Extract boxes, class_ids, scores, and class-specific masks
-        boxes = detections[:N, :4]
-        class_ids = detections[:N, 4].astype(np.int32)
-        scores = detections[:N, 5]
-        masks = mrcnn_mask[np.arange(N), :, :, class_ids]
-
-        # Compute scale and shift to translate coordinates to image domain.
-        h_scale = image_shape[0] / (window[2] - window[0])
-        w_scale = image_shape[1] / (window[3] - window[1])
-        scale = min(h_scale, w_scale)
-        shift = window[:2]  # y, x
-        scales = np.array([scale, scale, scale, scale])
-        shifts = np.array([shift[0], shift[1], shift[0], shift[1]])
-
-        # Translate bounding boxes to image domain
-        boxes = np.multiply(boxes - shifts, scales).astype(np.int32)
-
-        # Filter out detections with zero area. Often only happens in early
-        # stages of training when the network weights are still a bit random.
-        exclude_ix = np.where(
-            (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1]) <= 0)[0]
-        if exclude_ix.shape[0] > 0:
-            boxes = np.delete(boxes, exclude_ix, axis=0)
-            class_ids = np.delete(class_ids, exclude_ix, axis=0)
-            scores = np.delete(scores, exclude_ix, axis=0)
-            masks = np.delete(masks, exclude_ix, axis=0)
-            N = class_ids.shape[0]
-
-        # Resize masks to original image size and set boundary threshold.
-        full_masks = []
-        for i in range(N):
-            # Convert neural network mask to full size mask
-            full_mask = image_utils.unmold_mask(masks[i], boxes[i], image_shape)
-            full_masks.append(full_mask)
-        full_masks = np.stack(full_masks, axis=-1)\
-            if full_masks else np.empty((0,) + masks.shape[1:3])
-
-        return boxes, class_ids, scores, full_masks
 
 
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):

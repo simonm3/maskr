@@ -86,7 +86,7 @@ class CocoConfig(maskmm.config.Config):
 #  Dataset
 ############################################################
 
-class CocoDataset(maskmm.datagen.basedataset.Dataset):
+class CocoDataset(maskmm.datagen.dataset.Dataset):
     def load_coco(self, dataset_dir, subset, year=DEFAULT_DATASET_YEAR, class_ids=None,
                   class_map=None, return_coco=False, auto_download=False):
         """Load a subset of the COCO dataset.

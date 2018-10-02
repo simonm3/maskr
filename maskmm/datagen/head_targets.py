@@ -1,9 +1,11 @@
-
 import torch
-from torch.autograd import Variable
 from lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
+from utils import box_utils
 
-def gen_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
+import logging
+log = logging.getLogger()
+
+def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     """Subsamples proposals and generates target box refinment, class_ids,
     and masks for each.
 
@@ -47,16 +49,16 @@ def gen_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         gt_masks = gt_masks[non_crowd_ix.data, :]
 
         # Compute overlaps with crowd boxes [anchors, crowds]
-        crowd_overlaps = maskmm.utils.boxes.bbox_overlaps(proposals, crowd_boxes)
+        crowd_overlaps = box_utils.bbox_overlaps(proposals, crowd_boxes)
         crowd_iou_max = torch.max(crowd_overlaps, dim=1)[0]
         no_crowd_bool = crowd_iou_max < 0.001
     else:
-        no_crowd_bool =  Variable(torch.ByteTensor(proposals.size()[0]*[True]), requires_grad=False)
+        no_crowd_bool =  torch.ByteTensor(proposals.size()[0]*[True])
         if config.GPU_COUNT:
             no_crowd_bool = no_crowd_bool.cuda()
 
     # Compute overlaps matrix [proposals, gt_boxes]
-    overlaps = maskmm.utils.boxes.bbox_overlaps(proposals, gt_boxes)
+    overlaps = box_utils.boxes.bbox_overlaps(proposals, gt_boxes)
 
     # Determine postive and negative ROIs
     roi_iou_max = torch.max(overlaps, dim=1)[0]
@@ -86,8 +88,8 @@ def gen_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         roi_gt_class_ids = gt_class_ids[roi_gt_box_assignment.data]
 
         # Compute bbox refinement for positive ROI
-        deltas = Variable(maskmm.utils.boxes.box_refinement(positive_rois.data, roi_gt_boxes.data), requires_grad=False)
-        std_dev = Variable(torch.from_numpy(config.BBOX_STD_DEV).float(), requires_grad=False)
+        deltas = box_utils.box_refinement(positive_rois.data, roi_gt_boxes.data)
+        std_dev = torch.from_numpy(config.BBOX_STD_DEV).float()
         if config.GPU_COUNT:
             std_dev = std_dev.cuda()
         deltas /= std_dev
@@ -109,10 +111,11 @@ def gen_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
             y2 = (y2 - gt_y1) / gt_h
             x2 = (x2 - gt_x1) / gt_w
             boxes = torch.cat([y1, x1, y2, x2], dim=1)
-        box_ids = Variable(torch.arange(roi_masks.size()[0]), requires_grad=False).int()
+        box_ids = torch.arange(roi_masks.size()[0]).int()
         if config.GPU_COUNT:
             box_ids = box_ids.cuda()
-        masks = Variable(CropAndResizeFunction(config.MASK_SHAPE[0], config.MASK_SHAPE[1], 0)(roi_masks.unsqueeze(1), boxes, box_ids).data, requires_grad=False)
+        masks = CropAndResizeFunction(config.MASK_SHAPE[0], config.MASK_SHAPE[1], 0)\
+                        (roi_masks.unsqueeze(1), boxes, box_ids)
         masks = masks.squeeze(1)
 
         # Threshold mask pixels at 0.5 to have GT masks be 0 or 1 to use with
@@ -143,39 +146,39 @@ def gen_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     # are not used for negative ROIs with zeros.
     if positive_count > 0 and negative_count > 0:
         rois = torch.cat((positive_rois, negative_rois), dim=0)
-        zeros = Variable(torch.zeros(negative_count), requires_grad=False).int()
+        zeros = torch.zeros(negative_count).int()
         if config.GPU_COUNT:
             zeros = zeros.cuda()
         roi_gt_class_ids = torch.cat([roi_gt_class_ids, zeros], dim=0)
-        zeros = Variable(torch.zeros(negative_count,4), requires_grad=False)
+        zeros = torch.zeros(negative_count,4)
         if config.GPU_COUNT:
             zeros = zeros.cuda()
         deltas = torch.cat([deltas, zeros], dim=0)
-        zeros = Variable(torch.zeros(negative_count,config.MASK_SHAPE[0],config.MASK_SHAPE[1]), requires_grad=False)
+        zeros = torch.zeros(negative_count,config.MASK_SHAPE[0],config.MASK_SHAPE[1])
         if config.GPU_COUNT:
-            zeros = zeros.cuda()
+           zeros = zeros.cuda()
         masks = torch.cat([masks, zeros], dim=0)
     elif positive_count > 0:
         rois = positive_rois
     elif negative_count > 0:
         rois = negative_rois
-        zeros = Variable(torch.zeros(negative_count), requires_grad=False)
+        zeros = torch.zeros(negative_count)
         if config.GPU_COUNT:
             zeros = zeros.cuda()
         roi_gt_class_ids = zeros
-        zeros = Variable(torch.zeros(negative_count,4), requires_grad=False).int()
+        zeros = torch.zeros(negative_count,4).int()
         if config.GPU_COUNT:
             zeros = zeros.cuda()
         deltas = zeros
-        zeros = Variable(torch.zeros(negative_count,config.MASK_SHAPE[0],config.MASK_SHAPE[1]), requires_grad=False)
+        zeros = torch.zeros(negative_count,config.MASK_SHAPE[0],config.MASK_SHAPE[1])
         if config.GPU_COUNT:
             zeros = zeros.cuda()
         masks = zeros
     else:
-        rois = Variable(torch.FloatTensor(), requires_grad=False)
-        roi_gt_class_ids = Variable(torch.IntTensor(), requires_grad=False)
-        deltas = Variable(torch.FloatTensor(), requires_grad=False)
-        masks = Variable(torch.FloatTensor(), requires_grad=False)
+        rois = torch.FloatTensor()
+        roi_gt_class_ids = torch.IntTensor()
+        deltas = torch.FloatTensor()
+        masks = torch.FloatTensor(),
         if config.GPU_COUNT:
             rois = rois.cuda()
             roi_gt_class_ids = roi_gt_class_ids.cuda()
