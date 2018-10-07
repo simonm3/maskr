@@ -1,6 +1,6 @@
 import torch
-from lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
-from utils import box_utils
+from maskmm.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
+from maskmm.utils import box_utils
 
 import logging
 log = logging.getLogger()
@@ -49,7 +49,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         gt_masks = gt_masks[non_crowd_ix.data, :]
 
         # Compute overlaps with crowd boxes [anchors, crowds]
-        crowd_overlaps = box_utils.bbox_overlaps(proposals, crowd_boxes)
+        crowd_overlaps = box_utils.compute_overlaps(proposals, crowd_boxes)
         crowd_iou_max = torch.max(crowd_overlaps, dim=1)[0]
         no_crowd_bool = crowd_iou_max < 0.001
     else:

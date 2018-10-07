@@ -9,18 +9,18 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
 
-from utils import image_utils, visualize
+from maskmm.utils import image_utils, visualize
 
-from datagen.dataset import Dataset
-from datagen.head_targets import build_head_targets
-from datagen.anchors import generate_pyramid_anchors
+from maskmm.datagen.head_targets import build_head_targets
+from maskmm.datagen.anchors import generate_pyramid_anchors
+from maskmm.datagen.rpn_targets import build_rpn_targets
 
 from .rpn import RPN
-from .proposals import proposals
+from filters.proposals import proposals
 from .resnet import ResNet
 from .resnetFPN import FPN
 from .head import Classifier, Mask
-from .detections import filter_detections_batch
+from filters.detections import filter_detections_batch
 
 from maskmm.loss.head_loss import compute_losses
 
@@ -208,7 +208,7 @@ class MaskRCNN(nn.Module):
         """
 
         # Mold inputs to format expected by the neural network
-        molded_images, image_metas, windows = image_utils.mold_inputs(images)
+        molded_images, image_metas, windows = image_utils.mold_inputs(images, self.config)
 
         # Convert images to torch tensor
         with torch.no_grad():
@@ -392,10 +392,8 @@ class MaskRCNN(nn.Module):
             layers = layer_regex[layers]
 
         # Data generators
-        train_set = Dataset(train_dataset, self.config, augment=True)
-        train_generator = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, num_workers=4)
-        val_set = Dataset(val_dataset, self.config, augment=True)
-        val_generator = torch.utils.data.DataLoader(val_set, batch_size=1, shuffle=True, num_workers=4)
+        train_generator = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=4)
+        val_generator = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=4)
 
         # Train
         log("\nStarting at epoch {}. LR={}\n".format(self.epoch+1, learning_rate))
@@ -448,16 +446,9 @@ class MaskRCNN(nn.Module):
         for inputs in datagenerator:
             batch_count += 1
 
-            images = inputs[0]
-            image_metas = inputs[1]
-            rpn_match = inputs[2]
-            rpn_bbox = inputs[3]
-            gt_class_ids = inputs[4]
-            gt_boxes = inputs[5]
-            gt_masks = inputs[6]
-
-            # image_metas as numpy array
+            images, image_metas, gt_class_ids, gt_boxes = inputs
             image_metas = image_metas.numpy()
+            rpn_match, rpn_bbox = build_rpn_targets(self.anchors, gt_class_ids, gt_boxes, self.config)
 
             # To GPU
             if self.config.GPU_COUNT:
@@ -517,16 +508,9 @@ class MaskRCNN(nn.Module):
         loss_mrcnn_mask_sum = 0
 
         for inputs in datagenerator:
-            images = inputs[0]
-            image_metas = inputs[1]
-            rpn_match = inputs[2]
-            rpn_bbox = inputs[3]
-            gt_class_ids = inputs[4]
-            gt_boxes = inputs[5]
-            gt_masks = inputs[6]
-
-            # image_metas as numpy array
+            images, image_metas, gt_class_ids, gt_boxes = inputs
             image_metas = image_metas.numpy()
+            rpn_match, rpn_bbox = build_rpn_targets(self.anchors, gt_class_ids, gt_boxes, self.config)
 
             # To GPU
             if self.config.GPU_COUNT:

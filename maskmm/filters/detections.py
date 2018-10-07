@@ -1,7 +1,7 @@
 import torch
 import numpy as np
-from maskmm.utils import box_utils, utils, image_utils
-from lib.nms.nms_wrapper import nms
+from maskmm.utils import box_utils, image_utils
+from maskmm.lib.nms.nms_wrapper import nms
 
 ### utils #########################
 

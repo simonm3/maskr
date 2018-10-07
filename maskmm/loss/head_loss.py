@@ -1,7 +1,7 @@
 
 import torch
 import torch.nn.functional as F
-from loss.rpn_loss import compute_rpn_class_loss, compute_rpn_bbox_loss
+from maskmm.loss.rpn_loss import compute_rpn_class_loss, compute_rpn_bbox_loss
 
 def compute_mrcnn_class_loss(target_class_ids, pred_class_logits):
     """Loss for the classifier head of Mask RCNN.

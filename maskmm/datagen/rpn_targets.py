@@ -1,5 +1,6 @@
 import numpy as np
 from maskmm.utils import box_utils
+import torch
 
 def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     """Given the anchors and GT boxes, compute overlaps and identify positive
@@ -84,6 +85,11 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
 
     # Normalize
     rpn_bbox /= config.RPN_BBOX_STD_DEV
+
+    # todo. why add axis?
+    rpn_match = rpn_match[:, np.newaxis]
+    rpn_match = torch.from_numpy(rpn_match)
+    rpn_bbox = torch.from_numpy(rpn_bbox).float()
 
     return rpn_match, rpn_bbox
 

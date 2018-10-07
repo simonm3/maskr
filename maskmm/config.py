@@ -10,6 +10,7 @@ Written by Waleed Abdulla
 import math
 import numpy as np
 import os
+import torch
 
 
 # Base Configuration Class
@@ -30,7 +31,7 @@ class Config(object):
     IMAGENET_MODEL_PATH = os.path.join(os.getcwd(), "resnet50_imagenet.pth")
 
     # NUMBER OF GPUs to use. For CPU use 0
-    GPU_COUNT = 1
+    GPU_COUNT = torch.cuda.device_count()
 
     # Number of images to train with on each GPU. A 12GB GPU can typically
     # handle 2 images of 1024x1024px.

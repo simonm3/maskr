@@ -1,9 +1,9 @@
 from config import Config
 
-class Config(Config):
+class CocoConfig(Config):
 
-    NAME = "maskrcnn"
-    GPU_COUNT = 0
+    NAME = "coco"
+
     IMAGES_PER_GPU = 1
 
     CLASS_NAMES = ['BG', 'person', 'bicycle', 'car', 'motorcycle', 'airplane',

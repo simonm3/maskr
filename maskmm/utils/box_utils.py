@@ -24,54 +24,6 @@ def apply_box_deltas(boxes, deltas):
     result = torch.stack([y1, x1, y2, x2], dim=1)
     return result
 
-def clip_boxes(boxes, window):
-    """
-    boxes: [N, 4] each col is y1, x1, y2, x2
-    window: [4] in the form y1, x1, y2, x2
-    """
-    boxes = torch.stack( \
-        [boxes[:, 0].clamp(float(window[0]), float(window[2])),
-         boxes[:, 1].clamp(float(window[1]), float(window[3])),
-         boxes[:, 2].clamp(float(window[0]), float(window[2])),
-         boxes[:, 3].clamp(float(window[1]), float(window[3]))], 1)
-    return boxes
-
-def bbox_overlaps(boxes1, boxes2):
-    """Computes IoU overlaps between two sets of boxes.
-    boxes1, boxes2: [N, (y1, x1, y2, x2)].
-    """
-    # 1. Tile boxes2 and repeate boxes1. This allows us to compare
-    # every boxes1 against every boxes2 without loops.
-    # TF doesn't have an equivalent to np.repeate() so simulate it
-    # using tf.tile() and tf.reshape.
-    boxes1_repeat = boxes2.size()[0]
-    boxes2_repeat = boxes1.size()[0]
-    boxes1 = boxes1.repeat(1,boxes1_repeat).view(-1,4)
-    boxes2 = boxes2.repeat(boxes2_repeat,1)
-
-    # 2. Compute intersections
-    b1_y1, b1_x1, b1_y2, b1_x2 = boxes1.chunk(4, dim=1)
-    b2_y1, b2_x1, b2_y2, b2_x2 = boxes2.chunk(4, dim=1)
-    y1 = torch.max(b1_y1, b2_y1)[:, 0]
-    x1 = torch.max(b1_x1, b2_x1)[:, 0]
-    y2 = torch.min(b1_y2, b2_y2)[:, 0]
-    x2 = torch.min(b1_x2, b2_x2)[:, 0]
-    zeros = torch.zeros(y1.size()[0])
-    if y1.is_cuda:
-        zeros = zeros.cuda()
-    intersection = torch.max(x2 - x1, zeros) * torch.max(y2 - y1, zeros)
-
-    # 3. Compute unions
-    b1_area = (b1_y2 - b1_y1) * (b1_x2 - b1_x1)
-    b2_area = (b2_y2 - b2_y1) * (b2_x2 - b2_x1)
-    union = b1_area[:,0] + b2_area[:,0] - intersection
-
-    # 4. Compute IoU and reshape to [boxes1, boxes2]
-    iou = intersection / union
-    overlaps = iou.view(boxes2_repeat, boxes1_repeat)
-
-    return overlaps
-
 def clip_to_window(window, boxes):
     """
         window: (y1, x1, y2, x2). The window in the image we want to clip to.

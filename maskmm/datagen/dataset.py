@@ -1,56 +1,33 @@
-import torch
+import skimage
+from skimage.io import imread
 import numpy as np
+import torch
 from maskmm.utils import box_utils, image_utils
-from .anchors import generate_pyramid_anchors
-from .rpn_targets import build_rpn_targets
 import random
-import skimage.io
 
-class Dataset(torch.utils.data.Dataset):
-    def __init__(self, dataset, config, augment=True):
-        """A generator that returns images and corresponding target class ids,
-            bounding box deltas, and masks.
 
-            dataset: The Dataset object to pick data from
-            config: The model config object
-            shuffle: If True, shuffles the samples before every epoch
-            augment: If True, applies image augmentation to images (currently only
-                     horizontal flips are supported)
+class Dataset(torch.utils.data.dataset):
+    """The base class for dataset classes.
+    To use it, create a new class that adds functions specific to the dataset
+    you want to use. For example:
+    class CatsAndDogsDataset(Dataset):
+        def load_cats_and_dogs(self):
+            ...
+        def load_mask(self, image_id):
+            ...
+        def image_reference(self, image_id):
+            ...
+    See COCODataset and ShapesDataset as examples.
+    """
 
-            Returns a Python generator. Upon calling next() on it, the
-            generator returns two lists, inputs and outputs. The containtes
-            of the lists differs depending on the received arguments:
-            inputs list:
-            - images: [batch, H, W, C]
-            - image_metas: [batch, size of image meta]
-            - rpn_match: [batch, N] Integer (1=positive anchor, -1=negative, 0=neutral)
-            - rpn_bbox: [batch, N, (dy, dx, log(dh), log(dw))] Anchor bbox deltas.
-            - gt_class_ids: [batch, MAX_GT_INSTANCES] Integer class IDs
-            - gt_boxes: [batch, MAX_GT_INSTANCES, (y1, x1, y2, x2)]
-            - gt_masks: [batch, height, width, MAX_GT_INSTANCES]. The height and width
-                        are those of the image unless use_mini_mask is True, in which
-                        case they are defined in MINI_MASK_SHAPE.
+    def __init__(self, class_map=None, augment=True):
+        self._image_ids = []
+        self.image_info = []
+        # Background is always the first class
+        self.class_info = [{"source": "", "id": 0, "name": "BG"}]
+        self.source_class_ids = {}
 
-            outputs list: Usually empty in regular training. But if detection_targets
-                is True then the outputs list contains target class_ids, bbox deltas,
-                and masks.
-            """
-        self.b = 0  # batch item index
-        self.image_index = -1
-        self.image_ids = np.copy(dataset.image_ids)
-        self.error_count = 0
-
-        self.dataset = dataset
-        self.config = config
         self.augment = augment
-
-        # Anchors
-        # [anchor_count, (y1, x1, y2, x2)]
-        self.anchors = generate_pyramid_anchors(config.RPN_ANCHOR_SCALES,
-                                                 config.RPN_ANCHOR_RATIOS,
-                                                 config.BACKBONE_SHAPES,
-                                                 config.BACKBONE_STRIDES,
-                                                 config.RPN_ANCHOR_STRIDE)
 
     def add_class(self, source, class_id, class_name):
         assert "." not in source, "Source name cannot contain a dot"
@@ -78,7 +55,6 @@ class Dataset(torch.utils.data.Dataset):
     def image_reference(self, image_id):
         """Return a link to the image in its source Website or details about
         the image that help looking it up or debugging it.
-
         Override for your dataset, but pass to this function
         if you encounter images not in your dataset.
         """
@@ -86,7 +62,6 @@ class Dataset(torch.utils.data.Dataset):
 
     def prepare(self, class_map=None):
         """Prepares the Dataset class for use.
-
         TODO: class map is not supported yet. When done, it should handle mapping
               classes from different datasets to the same class ID.
         """
@@ -118,7 +93,6 @@ class Dataset(torch.utils.data.Dataset):
 
     def map_source_class_id(self, source_class_id):
         """Takes a source class ID and returns the int class ID assigned to it.
-
         For example:
         dataset.map_source_class_id("coco.12") -> 23
         """
@@ -156,24 +130,13 @@ class Dataset(torch.utils.data.Dataset):
         """Load the specified image and return a [H,W,3] Numpy array.
         """
         # Load image
-        image = skimage.io.imread(self.image_info[image_id]['path'])
+        image = imread(self.image_info[image_id]['path'])
         # If grayscale. Convert to RGB for consistency.
         if image.ndim != 3:
             image = skimage.color.gray2rgb(image)
         return image
 
     def load_mask(self, image_id):
-        """Load instance masks for the given image.
-
-        Different datasets use different ways to store masks. Override this
-        method to load instance masks and return them in the form of am
-        array of binary masks of shape [height, width, instances].
-
-        Returns:
-            masks: A bool array of shape [height, width, instance count] with
-                a binary mask per instance.
-            class_ids: a 1D array of class IDs of the instance masks.
-        """
         # Override this function to load a mask from your dataset.
         # Otherwise, it returns an empty mask.
         mask = np.empty([0, 0, 0])
@@ -193,10 +156,6 @@ class Dataset(torch.utils.data.Dataset):
         if not np.any(gt_class_ids > 0):
             return None
 
-        # RPN Targets
-        rpn_match, rpn_bbox = build_rpn_targets(image.shape, self.anchors,
-                                                gt_class_ids, gt_boxes, self.config)
-
         # If more instances than fits in the array, sub-sample from them.
         if gt_boxes.shape[0] > self.config.MAX_GT_INSTANCES:
             ids = np.random.choice(
@@ -205,30 +164,23 @@ class Dataset(torch.utils.data.Dataset):
             gt_boxes = gt_boxes[ids]
             gt_masks = gt_masks[:, :, ids]
 
-        # Add to batch
-        rpn_match = rpn_match[:, np.newaxis]
         images = image_utils.mold_image(image.astype(np.float32), self.config)
 
         # Convert
         images = torch.from_numpy(images.transpose(2, 0, 1)).float()
         image_metas = torch.from_numpy(image_metas)
-        rpn_match = torch.from_numpy(rpn_match)
-        rpn_bbox = torch.from_numpy(rpn_bbox).float()
         gt_class_ids = torch.from_numpy(gt_class_ids)
         gt_boxes = torch.from_numpy(gt_boxes).float()
         gt_masks = torch.from_numpy(gt_masks.astype(int).transpose(2, 0, 1)).float()
 
-        return images, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks
+        return images, image_metas, gt_class_ids, gt_boxes, gt_masks
 
     def __len__(self):
         return self.image_ids.shape[0]
 
-    def load_image_gt(self, config, image_id, augment=False,
-                      use_mini_mask=False):
+    def load_image_gt(self, config, image_id, use_mini_mask=False):
         """Load and return ground truth data for an image (image, mask, bounding boxes).
 
-        augment: If true, apply random image augmentation. Currently, only
-            horizontal flipping is offered.
         use_mini_mask: If False, returns full-size masks that are the same height
             and width as the original image. These can be big, for example
             1024x1024x100 (for 100 instances). Mini masks are smaller, typically,
@@ -256,7 +208,7 @@ class Dataset(torch.utils.data.Dataset):
         mask = image_utils.resize_mask(mask, scale, padding)
 
         # Random horizontal flips.
-        if augment:
+        if self.augment:
             if random.randint(0, 1):
                 image = np.fliplr(image)
                 mask = np.fliplr(mask)
@@ -281,4 +233,3 @@ class Dataset(torch.utils.data.Dataset):
         image_meta = image_utils.compose_image_meta(image_id, shape, window, active_class_ids)
 
         return image, image_meta, class_ids, bbox, mask
-

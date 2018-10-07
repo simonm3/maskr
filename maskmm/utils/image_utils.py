@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.misc, scipy.ndimage
-from utils import image_utils
+from maskmm.utils import image_utils
 
 def compose_image_meta(image_id, image_shape, window, active_class_ids):
     """Takes attributes of an image and puts them in one 1D array. Use

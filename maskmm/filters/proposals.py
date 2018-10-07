@@ -1,10 +1,10 @@
 import torch
 import numpy as np
 from torch.autograd import Variable
-from maskmm.utils.box_utils import apply_box_deltas, clip_boxes
-from lib.nms.nms_wrapper import nms
+from maskmm.utils import box_utils
+from maskmm.lib.nms.nms_wrapper import nms
 
-def proposals(inputs, proposal_count, nms_threshold, anchors, config=None):
+def proposals(inputs, proposal_count, nms_threshold, anchors, config):
     """Receives anchor scores and selects a subset to pass as proposals
     to the second stage. Filtering is done based on anchor scores and
     non-max suppression to remove overlaps. It also applies bounding
@@ -43,12 +43,12 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config=None):
 
     # Apply deltas to anchors to get refined anchors.
     # [batch, N, (y1, x1, y2, x2)]
-    boxes = apply_box_deltas(anchors, deltas)
+    boxes = box_utils.apply_box_deltas(anchors, deltas)
 
     # Clip to image boundaries. [batch, N, (y1, x1, y2, x2)]
     height, width = config.IMAGE_SHAPE[:2]
     window = np.array([0, 0, height, width]).astype(np.float32)
-    boxes = clip_boxes(boxes, window)
+    boxes = box_utils.clip_to_window(window, boxes)
 
     # Filter out small boxes
     # According to Xinlei Chen's paper, this reduces detection accuracy

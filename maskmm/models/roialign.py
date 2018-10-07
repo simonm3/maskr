@@ -1,5 +1,5 @@
 import torch
-from lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
+from maskmm.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
 
 def roialign(inputs, pool_size, image_shape):
     """Implements ROI Pooling on multiple levels of the feature pyramid.
