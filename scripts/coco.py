@@ -42,9 +42,9 @@ from pycocotools import mask as maskUtils
 
 from os.path import join
 
-from maskmm.models import maskrcnn
-from coco.config import CocoConfig
-from coco.dataset import CocoDataset
+from maskmm.models.maskrcnn import MaskRCNN
+from maskmm.coco.config import Config
+from maskmm.coco.dataset import Dataset
 
 # Root directory of the project
 ROOT_DIR = os.path.abspath(join(__file__, os.pardir, os.pardir, os.pardir))
@@ -187,9 +187,9 @@ if __name__ == '__main__':
 
     # Configurations
     if args.command == "train":
-        config = CocoConfig()
+        config = Config()
     else:
-        class InferenceConfig(CocoConfig):
+        class InferenceConfig(Config):
             # Set batch size to 1 since we'll be running inference on
             # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
             IMAGES_PER_GPU = 1
@@ -199,10 +199,10 @@ if __name__ == '__main__':
 
     # Create model
     if args.command == "train":
-        model = maskrcnn.MaskRCNN(config=config,
+        model = MaskRCNN(config=config,
                                   model_dir=args.logs)
     else:
-        model = maskrcnn.MaskRCNN(config=config,
+        model = MaskRCNN(config=config,
                                   model_dir=args.logs)
     if config.GPU_COUNT:
         model = model.cuda()
@@ -230,13 +230,13 @@ if __name__ == '__main__':
     if args.command == "train":
         # Training dataset. Use the training set and 35K from the
         # validation set, as as in the Mask RCNN paper.
-        dataset_train = CocoDataset()
+        dataset_train = Dataset()
         dataset_train.load_coco(args.dataset, "train", year=args.year, auto_download=args.download)
         dataset_train.load_coco(args.dataset, "valminusminival", year=args.year, auto_download=args.download)
         dataset_train.prepare()
 
         # Validation dataset
-        dataset_val = CocoDataset()
+        dataset_val = Dataset()
         dataset_val.load_coco(args.dataset, "minival", year=args.year, auto_download=args.download)
         dataset_val.prepare()
 
@@ -267,7 +267,7 @@ if __name__ == '__main__':
 
     elif args.command == "evaluate":
         # Validation dataset
-        dataset_val = CocoDataset()
+        dataset_val = Dataset()
         coco = dataset_val.load_coco(args.dataset, "minival", year=args.year, return_coco=True, auto_download=args.download)
         dataset_val.prepare()
         print("Running COCO evaluation on {} images.".format(args.limit))

@@ -3,7 +3,7 @@
 ############################################################
 
 import torch.nn as nn
-from models.samepad2d import SamePad2d
+from .samepad2d import SamePad2d
 
 class RPN(nn.Module):
     """Builds the model of Region Proposal Network.

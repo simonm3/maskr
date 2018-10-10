@@ -136,12 +136,14 @@ def mold_image(images, config):
     the mean pixel and converts it to float. Expects image
     colors in RGB order.
     """
+    images = images.transpose(2, 0, 1)
     return images.astype(np.float32) - config.MEAN_PIXEL
 
 
-def unmold_image(normalized_images, config):
+def unmold_image(images, config):
     """Takes a image normalized with mold() and returns the original."""
-    return (normalized_images + config.MEAN_PIXEL).astype(np.uint8)
+    images = images.cpu().numpy().transpose(1, 2, 0)
+    return (images + config.MEAN_PIXEL).astype(np.uint8)
 
 def resize_image(image, min_dim=None, max_dim=None, padding=False):
     """

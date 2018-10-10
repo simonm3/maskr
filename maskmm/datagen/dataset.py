@@ -2,11 +2,12 @@ import skimage
 from skimage.io import imread
 import numpy as np
 import torch
+from torch.utils.data import Dataset
 from maskmm.utils import box_utils, image_utils
 import random
 
 
-class Dataset(torch.utils.data.dataset):
+class Dataset(Dataset):
     """The base class for dataset classes.
     To use it, create a new class that adds functions specific to the dataset
     you want to use. For example:
@@ -20,7 +21,8 @@ class Dataset(torch.utils.data.dataset):
     See COCODataset and ShapesDataset as examples.
     """
 
-    def __init__(self, class_map=None, augment=True):
+    def __init__(self, config, class_map=None, augment=True):
+        self.config = config
         self._image_ids = []
         self.image_info = []
         # Background is always the first class
@@ -134,6 +136,8 @@ class Dataset(torch.utils.data.dataset):
         # If grayscale. Convert to RGB for consistency.
         if image.ndim != 3:
             image = skimage.color.gray2rgb(image)
+        if image.shape[-1] == 4:
+            image = skimage.color.rgba2rgb(image)
         return image
 
     def load_mask(self, image_id):
@@ -147,8 +151,7 @@ class Dataset(torch.utils.data.dataset):
         # Get GT bounding boxes and masks for image.
         image_id = self.image_ids[image_index]
         image, image_metas, gt_class_ids, gt_boxes, gt_masks = \
-            self.load_image_gt(self.config, image_id, augment=self.augment,
-                          use_mini_mask=self.config.USE_MINI_MASK)
+            self.load_image_gt(image_id, use_mini_mask=self.config.USE_MINI_MASK)
 
         # Skip images that have no instances. This can happen in cases
         # where we train on a subset of classes and the image doesn't
@@ -167,7 +170,7 @@ class Dataset(torch.utils.data.dataset):
         images = image_utils.mold_image(image.astype(np.float32), self.config)
 
         # Convert
-        images = torch.from_numpy(images.transpose(2, 0, 1)).float()
+        images = torch.from_numpy(images).float()
         image_metas = torch.from_numpy(image_metas)
         gt_class_ids = torch.from_numpy(gt_class_ids)
         gt_boxes = torch.from_numpy(gt_boxes).float()
@@ -178,7 +181,7 @@ class Dataset(torch.utils.data.dataset):
     def __len__(self):
         return self.image_ids.shape[0]
 
-    def load_image_gt(self, config, image_id, use_mini_mask=False):
+    def load_image_gt(self, image_id, use_mini_mask=False):
         """Load and return ground truth data for an image (image, mask, bounding boxes).
 
         use_mini_mask: If False, returns full-size masks that are the same height
@@ -202,9 +205,9 @@ class Dataset(torch.utils.data.dataset):
         shape = image.shape
         image, window, scale, padding = image_utils.resize_image(
             image,
-            min_dim=config.IMAGE_MIN_DIM,
-            max_dim=config.IMAGE_MAX_DIM,
-            padding=config.IMAGE_PADDING)
+            min_dim=self.config.IMAGE_MIN_DIM,
+            max_dim=self.config.IMAGE_MAX_DIM,
+            padding=self.config.IMAGE_PADDING)
         mask = image_utils.resize_mask(mask, scale, padding)
 
         # Random horizontal flips.
@@ -227,7 +230,7 @@ class Dataset(torch.utils.data.dataset):
 
         # Resize masks to smaller size to reduce memory usage
         if use_mini_mask:
-            mask = image_utils.minimize_mask(bbox, mask, config.MINI_MASK_SHAPE)
+            mask = image_utils.minimize_mask(bbox, mask, self.config.MINI_MASK_SHAPE)
 
         # Image meta data
         image_meta = image_utils.compose_image_meta(image_id, shape, window, active_class_ids)

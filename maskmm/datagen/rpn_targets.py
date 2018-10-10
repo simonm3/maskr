@@ -40,6 +40,7 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
 
     # Compute overlaps [num_anchors, num_gt_boxes]
     overlaps = box_utils.compute_overlaps(anchors, gt_boxes)
+    overlaps = overlaps.cpu().numpy()
 
     # Match anchors to GT Boxes
     # If an anchor overlaps a GT box with IoU >= 0.7 then it's positive.
@@ -83,6 +84,9 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     ids = np.where(rpn_match == 1)[0]
     rpn_bbox = box_utils.box_refinement(anchors[ids], gt_boxes[anchor_iou_argmax[ids]])
 
+    # todo put similar functions all in torch OR numpy. currently a mix. utils now all use torch hence this line
+    rpn_bbox = rpn_bbox.cpu().numpy()
+
     # Normalize
     rpn_bbox /= config.RPN_BBOX_STD_DEV
 
@@ -92,5 +96,21 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     rpn_bbox = torch.from_numpy(rpn_bbox).float()
 
     return rpn_match, rpn_bbox
+
+def build_rpn_targets_batch(anchors, gt_class_ids, gt_boxes, config):
+    """ return rpn target matches and boxes for a batch """
+    rpn_matches = []
+    rpn_bboxes = []
+    for n in range(config.BATCH_SIZE):
+        rpn_match, rpn_bbox = build_rpn_targets(anchors, gt_class_ids[n],
+                                                gt_boxes[n], config)
+        rpn_matches.append(rpn_match)
+        rpn_bboxes.append(rpn_bbox)
+    rpn_matches = torch.stack(rpn_matches)
+    rpn_bboxes = torch.stack(rpn_bboxes)
+
+    return rpn_matches, rpn_bboxes
+
+
 
 

@@ -1,5 +1,5 @@
 import torch.nn as nn
-from models.samepad2d import SamePad2d
+from .samepad2d import SamePad2d
 import torch.nn.functional as F
 
 class TopDownLayer(nn.Module):

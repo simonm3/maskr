@@ -13,16 +13,16 @@ from maskmm.utils import image_utils, visualize
 
 from maskmm.datagen.head_targets import build_head_targets
 from maskmm.datagen.anchors import generate_pyramid_anchors
-from maskmm.datagen.rpn_targets import build_rpn_targets
+from maskmm.datagen.rpn_targets import build_rpn_targets_batch
+from maskmm.filters.proposals import proposals
+from maskmm.filters.detections import filter_detections_batch
+from maskmm.loss.head_loss import compute_losses
 
 from .rpn import RPN
-from filters.proposals import proposals
 from .resnet import ResNet
 from .resnetFPN import FPN
 from .head import Classifier, Mask
-from filters.detections import filter_detections_batch
 
-from maskmm.loss.head_loss import compute_losses
 
 class MaskRCNN(nn.Module):
     """Encapsulates the Mask RCNN model functionality.
@@ -446,18 +446,31 @@ class MaskRCNN(nn.Module):
         for inputs in datagenerator:
             batch_count += 1
 
-            images, image_metas, gt_class_ids, gt_boxes = inputs
+            images, image_metas, gt_class_ids, gt_boxes, gt_masks = inputs
             image_metas = image_metas.numpy()
-            rpn_match, rpn_bbox = build_rpn_targets(self.anchors, gt_class_ids, gt_boxes, self.config)
 
             # To GPU
             if self.config.GPU_COUNT:
+                images = images.cuda()
+                gt_class_ids = gt_class_ids.cuda()
+                gt_boxes = gt_boxes.cuda()
+                gt_masks = gt_masks.cuda()
+
+            # target for batch
+            for n in range(self.config.BATCH_SIZE):
+                rpn_match, rpn_bbox = build_rpn_targets_batch(self.anchors, gt_class_ids[n],
+                                                        gt_boxes[n], self.config)
+            rpn_match = torch.cat(rpn_match)
+            rpn_bbox = torch.cat(rpn_bbox)
+
+            # To GPU
+            """if self.config.GPU_COUNT:
                 images = images.cuda()
                 rpn_match = rpn_match.cuda()
                 rpn_bbox = rpn_bbox.cuda()
                 gt_class_ids = gt_class_ids.cuda()
                 gt_boxes = gt_boxes.cuda()
-                gt_masks = gt_masks.cuda()
+                gt_masks = gt_masks.cuda()"""
 
             # Run object detection
             rpn_class_logits, rpn_pred_bbox, target_class_ids, mrcnn_class_logits, target_deltas, mrcnn_bbox, target_mask, mrcnn_mask = \
@@ -508,9 +521,9 @@ class MaskRCNN(nn.Module):
         loss_mrcnn_mask_sum = 0
 
         for inputs in datagenerator:
-            images, image_metas, gt_class_ids, gt_boxes = inputs
+            images, image_metas, gt_class_ids, gt_boxes, gt_masks = inputs
             image_metas = image_metas.numpy()
-            rpn_match, rpn_bbox = build_rpn_targets(self.anchors, gt_class_ids, gt_boxes, self.config)
+            rpn_match, rpn_bbox = build_rpn_targets_batch(self.anchors, gt_class_ids, gt_boxes, self.config)
 
             # To GPU
             if self.config.GPU_COUNT:

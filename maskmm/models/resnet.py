@@ -1,5 +1,5 @@
 import torch.nn as nn
-from models.samepad2d import SamePad2d
+from .samepad2d import SamePad2d
 
 class Bottleneck(nn.Module):
     expansion = 4

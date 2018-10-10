@@ -1,6 +1,6 @@
-from config import Config
+from maskmm.config import Config
 
-class CocoConfig(Config):
+class Config(Config):
 
     NAME = "coco"
 

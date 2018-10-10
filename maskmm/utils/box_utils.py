@@ -62,43 +62,40 @@ def extract_bboxes(mask):
     return boxes.astype(np.int32)
 
 
-def compute_iou(box, boxes, box_area, boxes_area):
-    """Calculates IoU of the given box with the array of the given boxes.
-    box: 1D vector [y1, x1, y2, x2]
-    boxes: [boxes_count, (y1, x1, y2, x2)]
-    box_area: float. the area of 'box'
-    boxes_area: array of length boxes_count.
-
-    Note: the areas are passed in rather than calculated here for
-          efficency. Calculate once in the caller to avoid duplicate work.
-    """
-    # Calculate intersection areas
-    y1 = np.maximum(box[0], boxes[:, 0])
-    y2 = np.minimum(box[2], boxes[:, 2])
-    x1 = np.maximum(box[1], boxes[:, 1])
-    x2 = np.minimum(box[3], boxes[:, 3])
-    intersection = np.maximum(x2 - x1, 0) * np.maximum(y2 - y1, 0)
-    union = box_area + boxes_area[:] - intersection[:]
-    iou = intersection / union
-    return iou
-
-
 def compute_overlaps(boxes1, boxes2):
     """Computes IoU overlaps between two sets of boxes.
     boxes1, boxes2: [N, (y1, x1, y2, x2)].
-
-    For better performance, pass the largest set first and the smaller second.
     """
-    # Areas of anchors and GT boxes
-    area1 = (boxes1[:, 2] - boxes1[:, 0]) * (boxes1[:, 3] - boxes1[:, 1])
-    area2 = (boxes2[:, 2] - boxes2[:, 0]) * (boxes2[:, 3] - boxes2[:, 1])
+    # 1. Tile boxes2 and repeate boxes1. This allows us to compare
+    # every boxes1 against every boxes2 without loops.
+    # TF doesn't have an equivalent to np.repeate() so simulate it
+    # using tf.tile() and tf.reshape.
+    boxes1_repeat = boxes2.size()[0]
+    boxes2_repeat = boxes1.size()[0]
+    boxes1 = boxes1.repeat(1,boxes1_repeat).view(-1,4)
+    boxes2 = boxes2.repeat(boxes2_repeat,1)
 
-    # Compute overlaps to generate matrix [boxes1 count, boxes2 count]
-    # Each cell contains the IoU value.
-    overlaps = np.zeros((boxes1.shape[0], boxes2.shape[0]))
-    for i in range(overlaps.shape[1]):
-        box2 = boxes2[i]
-        overlaps[:, i] = compute_iou(box2, boxes1, area2[i], area1)
+    # 2. Compute intersections
+    b1_y1, b1_x1, b1_y2, b1_x2 = boxes1.chunk(4, dim=1)
+    b2_y1, b2_x1, b2_y2, b2_x2 = boxes2.chunk(4, dim=1)
+    y1 = torch.max(b1_y1, b2_y1)[:, 0]
+    x1 = torch.max(b1_x1, b2_x1)[:, 0]
+    y2 = torch.min(b1_y2, b2_y2)[:, 0]
+    x2 = torch.min(b1_x2, b2_x2)[:, 0]
+    zeros = torch.zeros(y1.size()[0])
+    if y1.is_cuda:
+        zeros = zeros.cuda()
+    intersection = torch.max(x2 - x1, zeros) * torch.max(y2 - y1, zeros)
+
+    # 3. Compute unions
+    b1_area = (b1_y2 - b1_y1) * (b1_x2 - b1_x1)
+    b2_area = (b2_y2 - b2_y1) * (b2_x2 - b2_x1)
+    union = b1_area[:,0] + b2_area[:,0] - intersection
+
+    # 4. Compute IoU and reshape to [boxes1, boxes2]
+    iou = intersection / union
+    overlaps = iou.view(boxes2_repeat, boxes1_repeat)
+
     return overlaps
 
 def box_refinement(box, gt_box):

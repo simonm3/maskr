@@ -1,6 +1,6 @@
 import torch.nn as nn
 from .roialign import roialign
-from models.samepad2d import SamePad2d
+from .samepad2d import SamePad2d
 
 class Classifier(nn.Module):
     def __init__(self, depth, pool_size, image_shape, num_classes):

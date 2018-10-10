@@ -15,9 +15,9 @@ import zipfile
 import urllib.request
 import shutil
 
-from datagen.dataset import Dataset
+from maskmm.datagen.dataset import Dataset
 
-class CocoDataset(Dataset):
+class Dataset(Dataset):
     def load_coco(self, dataset_dir, subset, year, class_ids=None,
                   class_map=None, return_coco=False, auto_download=False):
         """Load a subset of the COCO dataset.
@@ -158,7 +158,7 @@ class CocoDataset(Dataset):
         # If not a COCO image, delegate to parent class.
         image_info = self.image_info[image_id]
         if image_info["source"] != "coco":
-            return super(CocoDataset, self).load_mask(image_id)
+            return super(Dataset, self).load_mask(image_id)
 
         instance_masks = []
         class_ids = []
@@ -193,7 +193,7 @@ class CocoDataset(Dataset):
             return mask, class_ids
         else:
             # Call super class to return an empty mask
-            return super(CocoDataset, self).load_mask(image_id)
+            return super(Dataset, self).load_mask(image_id)
 
     def image_reference(self, image_id):
         """Return a link to the image in the COCO Website."""
@@ -201,7 +201,7 @@ class CocoDataset(Dataset):
         if info["source"] == "coco":
             return "http://cocodataset.org/#explore?id={}".format(info["id"])
         else:
-            super(CocoDataset, self).image_reference(image_id)
+            super(Dataset, self).image_reference(image_id)
 
     # The following two functions are from pycocotools with a few changes.
 
