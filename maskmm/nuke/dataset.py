@@ -2,15 +2,25 @@ import os
 import numpy as np
 from os.path import join
 from PIL import Image
+import pandas as pd
 from maskmm.datagen.dataset import Dataset
 
 class Dataset(Dataset):
 
-    def load_nuke(self, datapath, train):
+    def load_nuke(self, path, subset=None):
+        """ sets up dataset with nuke data
+        subset.pkl contains dataframe with [image, subset] columns
+        subset column might be "train" or "valid"
+        """
         self.add_class("dsb", 1, "cell")
 
-        path = join(datapath, train)
-        for i in os.listdir(path):
+        if subset:
+            df = pd.read_pickle(join(path, os.pardir, "subset.pkl"))
+            files = list(df[df.subset==subset].image)
+        else:
+            files = os.listdir(path)
+
+        for i in files:
             imagepath = join(path, i, "images", i+".png")
             img = Image.open(imagepath)
 

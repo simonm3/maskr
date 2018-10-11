@@ -29,7 +29,6 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
                  Masks cropped to bbox boundaries and resized to neural
                  network output size.
     """
-
     # Currently only supports batchsize 1
     proposals = proposals.squeeze(0)
     gt_class_ids = gt_class_ids.squeeze(0)
@@ -39,7 +38,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     # Handle COCO crowds
     # A crowd box in COCO is a bounding box around several instances. Exclude
     # them from training. A crowd box is given a negative class ID.
-    if torch.nonzero(gt_class_ids < 0).size():
+    if len(torch.nonzero(gt_class_ids < 0)):
         crowd_ix = torch.nonzero(gt_class_ids < 0)[:, 0]
         non_crowd_ix = torch.nonzero(gt_class_ids > 0)[:, 0]
         crowd_boxes = gt_boxes[crowd_ix.data, :]
@@ -58,7 +57,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
             no_crowd_bool = no_crowd_bool.cuda()
 
     # Compute overlaps matrix [proposals, gt_boxes]
-    overlaps = box_utils.boxes.bbox_overlaps(proposals, gt_boxes)
+    overlaps = box_utils.compute_overlaps(proposals, gt_boxes)
 
     # Determine postive and negative ROIs
     roi_iou_max = torch.max(overlaps, dim=1)[0]
@@ -67,18 +66,18 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     positive_roi_bool = roi_iou_max >= 0.5
 
     # Subsample ROIs. Aim for 33% positive
-    # Positive ROIs
-    if torch.nonzero(positive_roi_bool).size():
+    # Positive ROIs.
+    if len(torch.nonzero(positive_roi_bool)):
         positive_indices = torch.nonzero(positive_roi_bool)[:, 0]
 
         positive_count = int(config.TRAIN_ROIS_PER_IMAGE *
                              config.ROI_POSITIVE_RATIO)
-        rand_idx = torch.randperm(positive_indices.size()[0])
+        rand_idx = torch.randperm(len(positive_indices))
         rand_idx = rand_idx[:positive_count]
         if config.GPU_COUNT:
             rand_idx = rand_idx.cuda()
         positive_indices = positive_indices[rand_idx]
-        positive_count = positive_indices.size()[0]
+        positive_count = len(positive_indices)
         positive_rois = proposals[positive_indices.data,:]
 
         # Assign positive ROIs to GT boxes.
@@ -111,7 +110,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
             y2 = (y2 - gt_y1) / gt_h
             x2 = (x2 - gt_x1) / gt_w
             boxes = torch.cat([y1, x1, y2, x2], dim=1)
-        box_ids = torch.arange(roi_masks.size()[0]).int()
+        box_ids = torch.arange(len(roi_masks)).int()
         if config.GPU_COUNT:
             box_ids = box_ids.cuda()
         masks = CropAndResizeFunction(config.MASK_SHAPE[0], config.MASK_SHAPE[1], 0)\
@@ -128,16 +127,16 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     negative_roi_bool = roi_iou_max < 0.5
     negative_roi_bool = negative_roi_bool & no_crowd_bool
     # Negative ROIs. Add enough to maintain positive:negative ratio.
-    if torch.nonzero(negative_roi_bool).size() and positive_count>0:
+    if len(torch.nonzero(negative_roi_bool)) and positive_count>0:
         negative_indices = torch.nonzero(negative_roi_bool)[:, 0]
         r = 1.0 / config.ROI_POSITIVE_RATIO
         negative_count = int(r * positive_count - positive_count)
-        rand_idx = torch.randperm(negative_indices.size()[0])
+        rand_idx = torch.randperm(len(negative_indices))
         rand_idx = rand_idx[:negative_count]
         if config.GPU_COUNT:
             rand_idx = rand_idx.cuda()
         negative_indices = negative_indices[rand_idx]
-        negative_count = negative_indices.size()[0]
+        negative_count = len(negative_indices)
         negative_rois = proposals[negative_indices.data, :]
     else:
         negative_count = 0
@@ -178,7 +177,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         rois = torch.FloatTensor()
         roi_gt_class_ids = torch.IntTensor()
         deltas = torch.FloatTensor()
-        masks = torch.FloatTensor(),
+        masks = torch.FloatTensor()
         if config.GPU_COUNT:
             rois = rois.cuda()
             roi_gt_class_ids = roi_gt_class_ids.cuda()

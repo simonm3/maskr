@@ -133,11 +133,12 @@ class Dataset(Dataset):
         """
         # Load image
         image = imread(self.image_info[image_id]['path'])
-        # If grayscale. Convert to RGB for consistency.
+
+        # If grayscale or rgba then convert to RGB for consistency.
         if image.ndim != 3:
-            image = skimage.color.gray2rgb(image)
-        if image.shape[-1] == 4:
-            image = skimage.color.rgba2rgb(image)
+            image = skimage.color.gray2rgb(image)*255
+        elif image.shape[-1] == 4:
+            image = skimage.color.rgba2rgb(image)*255
         return image
 
     def load_mask(self, image_id):

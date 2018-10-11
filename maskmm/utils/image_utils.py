@@ -2,6 +2,9 @@ import numpy as np
 import scipy.misc, scipy.ndimage
 from maskmm.utils import image_utils
 
+import warnings
+warnings.filterwarnings('ignore', '.*output shape of zoom.*')
+
 def compose_image_meta(image_id, image_shape, window, active_class_ids):
     """Takes attributes of an image and puts them in one 1D array. Use
     parse_image_meta() to parse the values back.
@@ -136,8 +139,8 @@ def mold_image(images, config):
     the mean pixel and converts it to float. Expects image
     colors in RGB order.
     """
-    images = images.transpose(2, 0, 1)
-    return images.astype(np.float32) - config.MEAN_PIXEL
+    images = images.astype(np.float32) - config.MEAN_PIXEL
+    return images.transpose(2, 0, 1)
 
 
 def unmold_image(images, config):
