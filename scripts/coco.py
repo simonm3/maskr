@@ -43,8 +43,8 @@ from pycocotools import mask as maskUtils
 from os.path import join
 
 from maskmm.models.maskrcnn import MaskRCNN
-from maskmm.coco.config import Config
-from maskmm.coco.dataset import Dataset
+from datasets.coco import Config
+from datasets.coco.dataset import Dataset
 
 # Root directory of the project
 ROOT_DIR = os.path.abspath(join(__file__, os.pardir, os.pardir, os.pardir))

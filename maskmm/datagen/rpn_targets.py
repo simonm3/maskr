@@ -2,6 +2,7 @@ import numpy as np
 from maskmm.utils import box_utils
 import torch
 
+
 def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     """Given the anchors and GT boxes, compute overlaps and identify positive
     anchors and deltas to refine them to match their corresponding GT boxes.
@@ -97,6 +98,7 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
 
     return rpn_match, rpn_bbox
 
+
 def build_rpn_targets_batch(anchors, gt_class_ids, gt_boxes, config):
     """ return rpn target matches and boxes for a batch """
     rpn_matches = []
@@ -110,7 +112,3 @@ def build_rpn_targets_batch(anchors, gt_class_ids, gt_boxes, config):
     rpn_bboxes = torch.stack(rpn_bboxes)
 
     return rpn_matches, rpn_bboxes
-
-
-
-

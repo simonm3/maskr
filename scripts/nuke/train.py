@@ -1,20 +1,22 @@
-from os.path import join, expanduser
-import yaml
-import logging
-from logging.config import dictConfig
-dictConfig(yaml.load(open(join(expanduser("~"),"logging.yaml"))))
-log = logging.getLogger()
+""" run the train/valid pipeline on nuke data """
 
 import os
-from os.path import join, expanduser
 import torch
 import numpy as np
 import pandas as pd
 
 from maskmm.models.maskrcnn import MaskRCNN
+from maskmm.learner import Learner
 
-from maskmm.nuke.config import Config
-from maskmm.nuke.dataset import Dataset
+from maskmm.datasets.nuke.config import Config
+from maskmm.datasets.nuke.dataset import Dataset
+
+from os.path import join, expanduser
+import yaml
+import logging
+from logging.config import dictConfig
+dictConfig(yaml.load(open(join(expanduser("~"), "logging.yaml"))))
+log = logging.getLogger()
 
 # configure
 ROOT_DIR = "/home/ubuntu/maskmm"
@@ -29,9 +31,9 @@ pvalid = .2
 trainpath = join(DATA, "stage1_train")
 
 df = pd.DataFrame(os.listdir(trainpath), columns=["image"])
-df["subset"] = np.random.random(len(df))>pvalid
-df.loc[df.subset==True, "subset"] = "train"
-df.loc[df.subset==False, "subset"] = "valid"
+df["subset"] = np.random.random(len(df)) > pvalid
+df.loc[df.subset, "subset"] = "train"
+df.loc[~df.subset, "subset"] = "valid"
 df.to_pickle(join(DATA, "subset.pkl"))
 df.subset.value_counts()
 
@@ -59,4 +61,5 @@ if config.GPU_COUNT:
     model = model.cuda()
 
 # train
-model.train_model(dataset_train, dataset_val, .001, 3, "heads")
+learner = Learner(model, dataset_train, dataset_val)
+learner.train(.001, 3, "heads")

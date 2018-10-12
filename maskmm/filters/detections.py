@@ -3,23 +3,26 @@ import numpy as np
 from maskmm.utils import box_utils, image_utils
 from maskmm.lib.nms.nms_wrapper import nms
 
+
 ### utils #########################
 
 def unique1d(tensor):
     if tensor.size()[0] == 0 or tensor.size()[0] == 1:
         return tensor
     tensor = tensor.sort()[0]
-    unique_bool = tensor[1:] != tensor [:-1]
+    unique_bool = tensor[1:] != tensor[:-1]
     first_element = torch.ByteTensor([True])
     if tensor.is_cuda:
         first_element = first_element.cuda()
-    unique_bool = torch.cat((first_element, unique_bool),dim=0)
+    unique_bool = torch.cat((first_element, unique_bool), dim=0)
     return tensor[unique_bool.data]
 
+
 def intersect1d(tensor1, tensor2):
-    aux = torch.cat((tensor1, tensor2),dim=0)
+    aux = torch.cat((tensor1, tensor2), dim=0)
     aux = aux.sort()[0]
     return aux[:-1][(aux[1:] == aux[:-1]).data]
+
 
 ###############################################
 
@@ -72,12 +75,12 @@ def filter_detections(rois, probs, deltas, window, config):
     # TODO: Filter out boxes with zero area
 
     # Filter out background boxes
-    keep_bool = class_ids>0
+    keep_bool = class_ids > 0
 
     # Filter out low confidence boxes
     if config.DETECTION_MIN_CONFIDENCE:
         keep_bool = keep_bool & (class_scores >= config.DETECTION_MIN_CONFIDENCE)
-    keep = torch.nonzero(keep_bool)[:,0]
+    keep = torch.nonzero(keep_bool)[:, 0]
 
     # Apply per-class NMS
     pre_nms_class_ids = class_ids[keep]
@@ -86,20 +89,20 @@ def filter_detections(rois, probs, deltas, window, config):
 
     for i, class_id in enumerate(unique1d(pre_nms_class_ids)):
         # Pick detections of this class
-        ixs = torch.nonzero(pre_nms_class_ids == class_id)[:,0]
+        ixs = torch.nonzero(pre_nms_class_ids == class_id)[:, 0]
 
         # Sort
         ix_rois = pre_nms_rois[ixs]
         ix_scores = pre_nms_scores[ixs]
         ix_scores, order = ix_scores.sort(descending=True)
-        ix_rois = ix_rois[order,:]
+        ix_rois = ix_rois[order, :]
 
         class_keep = nms(torch.cat((ix_rois, ix_scores.unsqueeze(1)), dim=1), config.DETECTION_NMS_THRESHOLD)
 
         # Map indicies
         class_keep = keep[ixs[order[class_keep]]]
 
-        if i==0:
+        if i == 0:
             nms_keep = class_keep
         else:
             nms_keep = unique1d(torch.cat((nms_keep, class_keep)))
@@ -135,4 +138,3 @@ def filter_detections_batch(config, rois, mrcnn_class, mrcnn_bbox, image_meta):
     detections = filter_detections(rois, mrcnn_class, mrcnn_bbox, window, config)
 
     return detections
-
