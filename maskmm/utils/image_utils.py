@@ -140,7 +140,7 @@ def mold_image(images, config):
     colors in RGB order.
     """
     images = images.astype(np.float32) - config.MEAN_PIXEL
-    return images.transpose(2, 0, 1)
+    return images
 
 
 def unmold_image(images, config):

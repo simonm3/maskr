@@ -6,6 +6,7 @@ from torch.utils.data import Dataset
 from maskmm.utils import box_utils, image_utils
 from maskmm.datagen.rpn_targets import build_rpn_targets
 import random
+from maskmm.mytools import *
 
 import logging
 log = logging.getLogger()
@@ -174,12 +175,12 @@ class Dataset(Dataset):
             gt_boxes = gt_boxes[ids]
             gt_masks = gt_masks[:, :, ids]
 
-        # todo. why add axis?
+        # Add to batch
         rpn_match = rpn_match[:, np.newaxis]
         images = image_utils.mold_image(image.astype(np.float32), self.config)
 
         # Convert
-        images = torch.from_numpy(images).float()
+        images = torch.from_numpy(images.transpose(2, 0, 1)).float()
         image_metas = torch.from_numpy(image_metas)
         rpn_match = torch.from_numpy(rpn_match)
         rpn_bbox = torch.from_numpy(rpn_bbox).float()

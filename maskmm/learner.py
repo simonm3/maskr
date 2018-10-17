@@ -90,9 +90,6 @@ class Learner:
                                     mode="training")
             self.loss_history.append(losses)
 
-            # todo for testing
-            return
-
             # Validation
             log.info(rngnext())
             model.train()

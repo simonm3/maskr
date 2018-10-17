@@ -23,14 +23,15 @@ def save(arr, filename):
         filename = filename + "0"
     log.info(f"saving {filename} at {os.path.basename(c.filename)}/{c.lineno}")
 
-    filename = join(SAVEPATH, filename)
-    if isinstance(arr, torch.Tensor):
-        torch.save(arr, filename)
-    elif isinstance(arr, np.ndarray):
-        np.save(filename, arr)
+    with open(join(SAVEPATH, filename), "wb") as f:
+        if isinstance(arr, torch.Tensor):
+            torch.save(arr, f)
+        elif isinstance(arr, np.ndarray):
+            np.save(f, arr)
 
 def load(filename):
     """ load array """
+    filename = filename
     c = getframeinfo(currentframe().f_back)
     log.info(f"loading {filename} at {os.path.basename(c.filename)}/{c.lineno}")
 
@@ -38,11 +39,19 @@ def load(filename):
     try:
         return torch.load(filename).cpu()
     except:
-        return torch.Tensor(np.load(filename+".npy"))
+        return np.load(filename)
 
 def match(filename):
     """ return true if filename=filename0 """
-    return torch.equal(load(filename), load(filename+"0"))
+    a = load(filename)
+    b = load(filename+"0")
+    if isinstance(a, np.ndarray):
+        try:
+            return np.equal(a, b).all()
+        except:
+            log.info((a.shape, b.shape))
+            return False
+    return torch.equal(a, b)
 
 ##################################################################################
 ## diagnose random seeds
