@@ -4,7 +4,11 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from maskmm.utils import box_utils, image_utils
+from maskmm.datagen.rpn_targets import build_rpn_targets
 import random
+
+import logging
+log = logging.getLogger()
 
 
 class Dataset(Dataset):
@@ -149,7 +153,7 @@ class Dataset(Dataset):
         return mask, class_ids
 
     def __getitem__(self, image_index):
-        # Get GT bounding boxes and masks for image.
+        """ return image, rpn_targets and ground truth """
         image_id = self.image_ids[image_index]
         image, image_metas, gt_class_ids, gt_boxes, gt_masks = \
             self.load_image_gt(image_id, use_mini_mask=self.config.USE_MINI_MASK)
@@ -160,6 +164,8 @@ class Dataset(Dataset):
         if not np.any(gt_class_ids > 0):
             return None
 
+        rpn_match, rpn_bbox = build_rpn_targets(self.config.ANCHORS, gt_class_ids, gt_boxes, self.config)
+
         # If more instances than fits in the array, sub-sample from them.
         if gt_boxes.shape[0] > self.config.MAX_GT_INSTANCES:
             ids = np.random.choice(
@@ -168,16 +174,20 @@ class Dataset(Dataset):
             gt_boxes = gt_boxes[ids]
             gt_masks = gt_masks[:, :, ids]
 
+        # todo. why add axis?
+        rpn_match = rpn_match[:, np.newaxis]
         images = image_utils.mold_image(image.astype(np.float32), self.config)
 
         # Convert
         images = torch.from_numpy(images).float()
         image_metas = torch.from_numpy(image_metas)
+        rpn_match = torch.from_numpy(rpn_match)
+        rpn_bbox = torch.from_numpy(rpn_bbox).float()
         gt_class_ids = torch.from_numpy(gt_class_ids)
         gt_boxes = torch.from_numpy(gt_boxes).float()
         gt_masks = torch.from_numpy(gt_masks.astype(int).transpose(2, 0, 1)).float()
 
-        return images, image_metas, gt_class_ids, gt_boxes, gt_masks
+        return images, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks
 
     def __len__(self):
         return self.image_ids.shape[0]

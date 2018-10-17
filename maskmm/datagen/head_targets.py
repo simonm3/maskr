@@ -8,7 +8,7 @@ log = logging.getLogger()
 
 
 def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
-    """Subsamples proposals and generates target box refinment, class_ids,
+    """ Subsamples proposals and generates target box refinment, class_ids,
     and masks for each.
 
     Inputs:
@@ -57,7 +57,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         gt_masks = gt_masks[non_crowd_ix.data, :]
 
         # Compute overlaps with crowd boxes [anchors, crowds]
-        crowd_overlaps = box_utils.compute_overlaps(proposals, crowd_boxes)
+        crowd_overlaps = box_utils.torch_compute_overlaps(proposals, crowd_boxes)
         crowd_iou_max = torch.max(crowd_overlaps, dim=1)[0]
         no_crowd_bool = crowd_iou_max < 0.001
     else:
@@ -66,7 +66,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
             no_crowd_bool = no_crowd_bool.cuda()
 
     # Compute overlaps matrix [proposals, gt_boxes]
-    overlaps = box_utils.compute_overlaps(proposals, gt_boxes)
+    overlaps = box_utils.torch_compute_overlaps(proposals, gt_boxes)
 
     # Determine postive and negative ROIs
     roi_iou_max = torch.max(overlaps, dim=1)[0]

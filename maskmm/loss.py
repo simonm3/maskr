@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
-
+import logging
+log = logging.getLogger()
 
 def rpn_class(rpn_match, rpn_class_logits):
     """RPN anchor classifier loss.
@@ -9,7 +10,6 @@ def rpn_class(rpn_match, rpn_class_logits):
                -1=negative, 0=neutral anchor.
     rpn_class_logits: [batch, anchors, 2]. RPN classifier logits for FG/BG.
     """
-
     # Squeeze last dim to simplify
     rpn_match = rpn_match.squeeze(2)
 
@@ -26,7 +26,6 @@ def rpn_class(rpn_match, rpn_class_logits):
 
     # Crossentropy loss
     loss = F.cross_entropy(rpn_class_logits, anchor_class)
-
     return loss
 
 
@@ -54,7 +53,7 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
     target_bbox = target_bbox[0, :rpn_bbox.size()[0], :]
 
     # Smooth L1 loss
-    loss = F.smooth_l1(rpn_bbox, target_bbox)
+    loss = F.smooth_l1_loss(rpn_bbox, target_bbox)
 
     return loss
 

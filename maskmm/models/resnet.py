@@ -1,5 +1,7 @@
 import torch.nn as nn
 from .samepad2d import SamePad2d
+import logging
+log = logging.getLogger()
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -45,7 +47,7 @@ class Bottleneck(nn.Module):
 class ResNet(nn.Module):
 
     def __init__(self, architecture, stage5=False):
-        super(ResNet, self).__init__()
+        super().__init__()
         assert architecture in ["resnet50", "resnet101"]
         self.inplanes = 64
         self.layers = [3, 4, {"resnet50": 6, "resnet101": 23}[architecture], 3]
@@ -74,7 +76,6 @@ class ResNet(nn.Module):
         x = self.C4(x)
         x = self.C5(x)
         return x
-
 
     def stages(self):
         return [self.C1, self.C2, self.C3, self.C4, self.C5]

@@ -4,6 +4,8 @@
 
 import torch.nn as nn
 from .samepad2d import SamePad2d
+import logging
+log = logging.getLogger()
 
 class RPN(nn.Module):
     """Builds the model of Region Proposal Network.

@@ -1,7 +1,7 @@
 import numpy as np
 from maskmm.utils import box_utils
 import torch
-
+from maskmm.mytools import *
 
 def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     """Given the anchors and GT boxes, compute overlaps and identify positive
@@ -32,7 +32,7 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
         gt_class_ids = gt_class_ids[non_crowd_ix]
         gt_boxes = gt_boxes[non_crowd_ix]
         # Compute overlaps with crowd boxes [anchors, crowds]
-        crowd_overlaps = box_utils.compute_overlaps(anchors, crowd_boxes)
+        crowd_overlaps = box_utils.np_compute_overlaps(anchors, crowd_boxes)
         crowd_iou_max = np.amax(crowd_overlaps, axis=1)
         no_crowd_bool = (crowd_iou_max < 0.001)
     else:
@@ -40,8 +40,10 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
         no_crowd_bool = np.ones([anchors.shape[0]], dtype=bool)
 
     # Compute overlaps [num_anchors, num_gt_boxes]
-    overlaps = box_utils.compute_overlaps(anchors, gt_boxes)
-    overlaps = overlaps.cpu().numpy()
+    save(anchors, "anchors_pre")
+    save(gt_boxes, "gt_boxes_pre")
+    overlaps = box_utils.np_compute_overlaps(anchors, gt_boxes)
+    save(overlaps, "overlaps")
 
     # Match anchors to GT Boxes
     # If an anchor overlaps a GT box with IoU >= 0.7 then it's positive.
@@ -83,32 +85,40 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     # For positive anchors, compute shift and scale needed to transform them
     # to match the corresponding GT boxes.
     ids = np.where(rpn_match == 1)[0]
-    rpn_bbox = box_utils.box_refinement(anchors[ids], gt_boxes[anchor_iou_argmax[ids]])
 
-    # todo put similar functions all in torch OR numpy. currently a mix. utils now all use torch hence this line
-    rpn_bbox = rpn_bbox.cpu().numpy()
+    #rpn_bbox = box_utils.box_refinement(anchors[ids], gt_boxes[anchor_iou_argmax[ids]])
+    #rpn_bbox = rpn_bbox.cpu().numpy()
 
     # Normalize
-    rpn_bbox /= config.RPN_BBOX_STD_DEV
+    #rpn_bbox /= config.RPN_BBOX_STD_DEV
 
-    # todo. why add axis?
-    rpn_match = rpn_match[:, np.newaxis]
-    rpn_match = torch.from_numpy(rpn_match)
-    rpn_bbox = torch.from_numpy(rpn_bbox).float()
+    ix = 0  # index into rpn_bbox
+    # TODO: use box_refinment() rather than duplicating the code here
+    for i, a in zip(ids, anchors[ids]):
+        # Closest gt box (it might have IoU < 0.7)
+        gt = gt_boxes[anchor_iou_argmax[i]]
+
+        # Convert coordinates to center plus width/height.
+        # GT Box
+        gt_h = gt[2] - gt[0]
+        gt_w = gt[3] - gt[1]
+        gt_center_y = gt[0] + 0.5 * gt_h
+        gt_center_x = gt[1] + 0.5 * gt_w
+        # Anchor
+        a_h = a[2] - a[0]
+        a_w = a[3] - a[1]
+        a_center_y = a[0] + 0.5 * a_h
+        a_center_x = a[1] + 0.5 * a_w
+
+        # Compute the bbox refinement that the RPN should predict.
+        rpn_bbox[ix] = [
+            (gt_center_y - a_center_y) / a_h,
+            (gt_center_x - a_center_x) / a_w,
+            np.log(gt_h / a_h),
+            np.log(gt_w / a_w),
+        ]
+        # Normalize
+        rpn_bbox[ix] /= config.RPN_BBOX_STD_DEV
+        ix += 1
 
     return rpn_match, rpn_bbox
-
-
-def build_rpn_targets_batch(anchors, gt_class_ids, gt_boxes, config):
-    """ return rpn target matches and boxes for a batch """
-    rpn_matches = []
-    rpn_bboxes = []
-    for n in range(config.BATCH_SIZE):
-        rpn_match, rpn_bbox = build_rpn_targets(anchors, gt_class_ids[n],
-                                                gt_boxes[n], config)
-        rpn_matches.append(rpn_match)
-        rpn_bboxes.append(rpn_bbox)
-    rpn_matches = torch.stack(rpn_matches)
-    rpn_bboxes = torch.stack(rpn_bboxes)
-
-    return rpn_matches, rpn_bboxes

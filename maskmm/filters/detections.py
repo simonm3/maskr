@@ -3,6 +3,8 @@ import numpy as np
 from maskmm.utils import box_utils, image_utils
 from maskmm.lib.nms.nms_wrapper import nms
 
+import logging
+log = logging.getLogger()
 
 ### utils #########################
 

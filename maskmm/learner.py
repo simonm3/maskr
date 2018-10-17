@@ -3,9 +3,10 @@ import torch.optim as optim
 import torch.utils.data
 
 from maskmm.utils import visualize
-from maskmm.datagen.rpn_targets import build_rpn_targets_batch
 import maskmm.loss as loss
-
+import logging
+log = logging.getLogger()
+from maskmm.mytools import *
 
 class Learner:
     """ training/validation loop encapsulating model, datasets, optimizer """
@@ -53,8 +54,8 @@ class Learner:
             layers = layer_regex[layers]
 
         # Data generators
-        train_generator = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=4)
-        val_generator = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=4)
+        train_generator = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=0)
+        val_generator = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=0)
 
         # Train
         log1("\nStarting at epoch {}. LR={}\n".format(model.epoch + 1, learning_rate))
@@ -76,32 +77,38 @@ class Learner:
             log1(f"Epoch {epoch}/{epochs}.")
 
             # Training
+            log.info(rngnext())
             model.train()
             model.optimizer.zero_grad()
-
             # Set batchnorm always in eval mode during training
             def set_bn_eval(m):
                 classname = m.__class__.__name__
                 if classname.find('BatchNorm') != -1:
                     m.eval()
-
             model.apply(set_bn_eval)
-            losses = self.run_epoch(train_generator, model.config.STEPS_PER_EPOCH)
+            losses = self.run_epoch(train_generator, model.config.STEPS_PER_EPOCH,
+                                    mode="training")
             self.loss_history.append(losses)
 
-            # Validation
-            model.eval()
-            with torch.no_grad():
-                losses = self.run_epoch(val_generator, model.config.VALIDATION_STEPS)
-                self.val_loss_history.append(losses)
-            visualize.plot_loss(self.loss_history, self.val_loss_history, save=True, log_dir=model.log_dir)
+            # todo for testing
+            return
 
-            # Save model
+            # Validation
+            log.info(rngnext())
+            model.train()
+            model.apply(set_bn_eval)
+            with torch.no_grad():
+                losses = self.run_epoch(val_generator, model.config.VALIDATION_STEPS,
+                                        mode="validation")
+                self.val_loss_history.append(losses)
+
+            # finish epoch
+            visualize.plot_loss(self.loss_history, self.val_loss_history, save=True, log_dir=model.log_dir)
             torch.save(model.state_dict(), model.checkpoint_path.format(epoch))
 
         model.epoch = epochs
 
-    def run_epoch(self, datagenerator, steps):
+    def run_epoch(self, datagenerator, steps, mode):
         model = self.model
 
         batch_count = 0
@@ -117,23 +124,25 @@ class Learner:
             batch_count += 1
 
             # get data
-            images, image_metas, gt_class_ids, gt_boxes, gt_masks = inputs
+            images, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks = inputs
             image_metas = image_metas.numpy()
+
+            save(images, "images")
+            save(gt_class_ids, "gt_class_ids")
+            save(gt_boxes, "gt_boxes")
+
             if model.config.GPU_COUNT:
                 images = images.cuda()
                 gt_class_ids = gt_class_ids.cuda()
                 gt_boxes = gt_boxes.cuda()
                 gt_masks = gt_masks.cuda()
-
-            # get rpn_targets
-            rpn_match, rpn_bbox = build_rpn_targets_batch(model.anchors, gt_class_ids, gt_boxes, model.config)
-            if model.config.GPU_COUNT:
                 rpn_match = rpn_match.cuda()
                 rpn_bbox = rpn_bbox.cuda()
 
             # Run object detection
             rpn_class_logits, rpn_pred_bbox, target_class_ids, mrcnn_class_logits, target_deltas, mrcnn_bbox, \
-            target_mask, mrcnn_mask = model([images, image_metas, gt_class_ids, gt_boxes, gt_masks])
+            target_mask, mrcnn_mask = model([images, image_metas, gt_class_ids, gt_boxes, gt_masks],
+                                            mode=mode)
 
             # Compute losses
             rpn_class_loss = loss.rpn_class(rpn_match, rpn_class_logits)
@@ -143,7 +152,7 @@ class Learner:
             mrcnn_mask_loss = loss.mrcnn_mask(target_mask, target_class_ids, mrcnn_mask)
             totloss = rpn_class_loss + rpn_bbox_loss + mrcnn_class_loss + mrcnn_bbox_loss + mrcnn_mask_loss
 
-            if model.training:
+            if mode=="training":
                 # Backpropagation
                 totloss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)

@@ -11,6 +11,7 @@ import math
 import numpy as np
 import os
 import torch
+from maskmm.datagen.anchors import generate_pyramid_anchors
 
 
 # Base Configuration Class
@@ -169,6 +170,13 @@ class Config(object):
             [[int(math.ceil(self.IMAGE_SHAPE[0] / stride)),
               int(math.ceil(self.IMAGE_SHAPE[1] / stride))]
              for stride in self.BACKBONE_STRIDES])
+
+        # Generate Anchors
+        self.ANCHORS = generate_pyramid_anchors(self.RPN_ANCHOR_SCALES,
+                                                self.RPN_ANCHOR_RATIOS,
+                                                self.BACKBONE_SHAPES,
+                                                self.BACKBONE_STRIDES,
+                                                self.RPN_ANCHOR_STRIDE)
 
     def display(self):
         """Display Configuration values."""

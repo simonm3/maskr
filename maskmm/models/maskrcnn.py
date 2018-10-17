@@ -10,7 +10,6 @@ import torch.utils.data
 from maskmm.utils import image_utils
 
 from maskmm.datagen.head_targets import build_head_targets
-from maskmm.datagen.anchors import generate_pyramid_anchors
 from maskmm.filters.proposals import proposals
 from maskmm.filters.detections import filter_detections_batch
 
@@ -18,6 +17,9 @@ from .rpn import RPN
 from .resnet import ResNet
 from .resnetFPN import FPN
 from .head import Classifier, Mask
+
+import logging
+log = logging.getLogger()
 
 
 class MaskRCNN(nn.Module):
@@ -29,7 +31,7 @@ class MaskRCNN(nn.Module):
         config: A Sub-class of the Config class
         model_dir: Directory to save training logs and trained weights
         """
-        super(MaskRCNN, self).__init__()
+        super().__init__()
         self.config = config
         self.model_dir = model_dir
         self.set_log_dir()
@@ -52,16 +54,6 @@ class MaskRCNN(nn.Module):
         # TODO: add assert to varify feature map sizes match what's in config
         self.fpn = FPN(C1, C2, C3, C4, C5, out_channels=256)
 
-        # Generate Anchors
-        with torch.no_grad():
-            self.anchors = torch.from_numpy(generate_pyramid_anchors(config.RPN_ANCHOR_SCALES,
-                                                                     config.RPN_ANCHOR_RATIOS,
-                                                                     config.BACKBONE_SHAPES,
-                                                                     config.BACKBONE_STRIDES,
-                                                                     config.RPN_ANCHOR_STRIDE)).float()
-        if self.config.GPU_COUNT:
-            self.anchors = self.anchors.cuda()
-
         # RPN
         self.rpn = RPN(len(config.RPN_ANCHOR_RATIOS), config.RPN_ANCHOR_STRIDE, 256)
 
@@ -79,7 +71,8 @@ class MaskRCNN(nn.Module):
 
         self.apply(set_bn_fix)
 
-    def forward(self, input):
+    def forward(self, input, mode):
+        """ mode=training, validation, detection """
         images, image_metas, gt_class_ids, gt_boxes, gt_masks = input
 
         # Feature extraction
@@ -110,11 +103,13 @@ class MaskRCNN(nn.Module):
         rpn_rois = proposals([rpn_class, rpn_bbox],
                              proposal_count=proposal_count,
                              nms_threshold=self.config.RPN_NMS_THRESHOLD,
-                             anchors=self.anchors,
+                             anchors=self.config.ANCHORS,
                              config=self.config)
 
-        if self.training:
-            # head_targets, head classifier/mask
+        if mode in ["training", "validation"]:
+            # generate head targets and balanced sample of positive/negative rois
+            # run classifier and mask heads
+
             with torch.no_grad():
                 # Generate detection targets
                 # Subsamples proposals and generates target outputs for training
@@ -140,8 +135,10 @@ class MaskRCNN(nn.Module):
 
             return [rpn_class_logits, rpn_bbox, target_class_ids, mrcnn_class_logits, target_deltas, mrcnn_bbox,
                     target_mask, mrcnn_mask]
-        else:
-            # head classifier/bbox; detections; masks
+        elif mode=="detection":
+            # run classifier head
+            # filter detections
+            # run mask head
             mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(mrcnn_feature_maps, rpn_rois)
 
             with torch.no_grad():
@@ -169,6 +166,8 @@ class MaskRCNN(nn.Module):
             mrcnn_mask = mrcnn_mask.unsqueeze(0)
 
             return [detections, mrcnn_mask]
+        else:
+            raise Exception("invalid mode. must be training/validation/detection")
 
     def initialize_weights(self):
         """Initialize model weights.
@@ -224,7 +223,7 @@ class MaskRCNN(nn.Module):
 
         # Directory for training logs
         self.log_dir = os.path.join(self.model_dir,
-                                    f"{self.config.NAME.lower()}{datetime.now().strftime('%Y%m%%d_%H%M')}")
+                                    f"{self.config.NAME.lower()}{datetime.datetime.now().strftime('%Y%m%%d_%H%M')}")
         os.makedirs(self.log_dir, exist_ok=True)
 
         # Path to save after each epoch. Include placeholders that get filled by Keras.
@@ -298,7 +297,7 @@ class MaskRCNN(nn.Module):
                 molded_images = molded_images.cuda()
 
             # Run object detection
-            detections, mrcnn_mask = self([molded_images, image_metas])
+            detections, mrcnn_mask = self([molded_images, image_metas], mode="detection")
 
             # Convert to numpy
             detections = detections.cpu().numpy()
