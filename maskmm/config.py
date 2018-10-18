@@ -154,8 +154,10 @@ class Config(object):
         """Set values of computed attributes."""
         # Effective batch size
         if self.GPU_COUNT > 0:
+            self.DEVICE = torch.device("cuda")
             self.BATCH_SIZE = self.IMAGES_PER_GPU * self.GPU_COUNT
         else:
+            self.DEVICE = torch.device("cpu")
             self.BATCH_SIZE = self.IMAGES_PER_GPU
 
         # Adjust step size based on batch size

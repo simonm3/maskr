@@ -77,7 +77,6 @@ class Learner:
             log1(f"Epoch {epoch}/{epochs}.")
 
             # Training
-            log.info(rngnext())
             model.train()
             model.optimizer.zero_grad()
             # Set batchnorm always in eval mode during training
@@ -107,6 +106,7 @@ class Learner:
 
     def run_epoch(self, datagenerator, steps, mode):
         model = self.model
+        device = model.config.DEVICE
 
         batch_count = 0
         loss_sum = 0
@@ -124,17 +124,17 @@ class Learner:
             images, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks = inputs
             image_metas = image_metas.numpy()
 
+            images = images.to(device)
+            gt_class_ids = gt_class_ids.to(device)
+            gt_boxes = gt_boxes.to(device)
+            gt_masks = gt_masks.to(device)
+
             save(images, "images")
             save(gt_class_ids, "gt_class_ids")
             save(gt_boxes, "gt_boxes")
-
-            if model.config.GPU_COUNT:
-                images = images.cuda()
-                gt_class_ids = gt_class_ids.cuda()
-                gt_boxes = gt_boxes.cuda()
-                gt_masks = gt_masks.cuda()
-                rpn_match = rpn_match.cuda()
-                rpn_bbox = rpn_bbox.cuda()
+            ### MASKMM0 HAS STRANGE LAST DIMENSION THAT IS NEVER USED?
+            save(rpn_match.unsqueeze(-1), "rpn_match")
+            save(rpn_bbox, "rpn_bbox")
 
             # Run object detection
             rpn_class_logits, rpn_pred_bbox, target_class_ids, mrcnn_class_logits, target_deltas, mrcnn_bbox, \

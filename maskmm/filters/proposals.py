@@ -19,7 +19,9 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
         Proposals in normalized coordinates [batch, rois, (y1, x1, y2, x2)]
     """
     # todo fudge to get working
-    anchors = torch.Tensor(anchors).cuda()
+    anchors = torch.Tensor(anchors)
+    if config.GPU_COUNT>0:
+        anchors = torch.Tensor(anchors).cuda()
 
     with torch.no_grad():
         # Currently only supports batchsize 1

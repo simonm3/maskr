@@ -91,7 +91,6 @@ def np_compute_overlaps(boxes1, boxes2):
     """
     # Areas of anchors and GT boxes
     area1 = (boxes1[:, 2] - boxes1[:, 0]) * (boxes1[:, 3] - boxes1[:, 1])
-    log.info((boxes1.shape, boxes2.shape))
     area2 = (boxes2[:, 2] - boxes2[:, 0]) * (boxes2[:, 3] - boxes2[:, 1])
 
     # Compute overlaps to generate matrix [boxes1 count, boxes2 count]

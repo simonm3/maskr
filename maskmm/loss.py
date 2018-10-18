@@ -11,7 +11,8 @@ def rpn_class(rpn_match, rpn_class_logits):
     rpn_class_logits: [batch, anchors, 2]. RPN classifier logits for FG/BG.
     """
     # Squeeze last dim to simplify
-    rpn_match = rpn_match.squeeze(2)
+    # todo ??? not needed
+    #rpn_match = rpn_match.squeeze()
 
     # Get anchor classes. Convert the -1/+1 match to 0/1 values.
     anchor_class = (rpn_match == 1).long()
@@ -39,8 +40,8 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
     rpn_bbox: [batch, anchors, (dy, dx, log(dh), log(dw))]
     """
 
-    # Squeeze last dim to simplify
-    rpn_match = rpn_match.squeeze(2)
+    # todo ??? not needed
+    # rpn_match = rpn_match.squeeze()
 
     # Positive anchors contribute to the loss, but negative and
     # neutral anchors (match value of 0 or -1) don't.
