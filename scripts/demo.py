@@ -23,9 +23,8 @@ IMAGE_DIR = os.path.join(ROOT_DIR, "data/images")
 # Create model with coco weights
 config = Config()
 config.display()
-model = maskrcnn.MaskRCNN(model_dir=MODEL_DIR, config=config)
-if config.GPU_COUNT:
-    model = model.cuda()
+model = maskrcnn.MaskRCNN(model_dir=MODEL_DIR, config=config).to(config.DEVICE)
+
 model.load_state_dict(torch.load(COCO_MODEL_PATH))
 
 # Load a random image from the images folder

@@ -74,6 +74,7 @@ class MaskRCNN(nn.Module):
     def forward(self, input, mode):
         """ mode=training, validation, detection """
         images, image_metas, gt_class_ids, gt_boxes, gt_masks = input
+        config = self.config
 
         # Feature extraction
         [p2_out, p3_out, p4_out, p5_out, p6_out] = self.fpn(images)
@@ -98,13 +99,13 @@ class MaskRCNN(nn.Module):
         # Generate proposals
         # Proposals are [batch, N, (y1, x1, y2, x2)] in normalized coordinates
         # and zero padded.
-        proposal_count = self.config.POST_NMS_ROIS_TRAINING if self.training \
-            else self.config.POST_NMS_ROIS_INFERENCE
+        proposal_count = config.POST_NMS_ROIS_TRAINING if self.training \
+            else config.POST_NMS_ROIS_INFERENCE
         rpn_rois = proposals([rpn_class, rpn_bbox],
                              proposal_count=proposal_count,
-                             nms_threshold=self.config.RPN_NMS_THRESHOLD,
-                             anchors=self.config.ANCHORS,
-                             config=self.config)
+                             nms_threshold=config.RPN_NMS_THRESHOLD,
+                             anchors=config.ANCHORS,
+                             config=config)
 
         if mode in ["training", "validation"]:
             # generate head targets and balanced sample of positive/negative rois
@@ -116,18 +117,13 @@ class MaskRCNN(nn.Module):
                 # Note that proposal class IDs, gt_boxes, and gt_masks are zero
                 # padded. Equally, returned rois and targets are zero padded.
                 rois, target_class_ids, target_deltas, target_mask = \
-                    build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, self.config)
+                    build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
 
             if len(rois) == 0:
-                mrcnn_class_logits = torch.FloatTensor()
-                mrcnn_class = torch.IntTensor()
-                mrcnn_bbox = torch.FloatTensor()
-                mrcnn_mask = torch.FloatTensor()
-                if self.config.GPU_COUNT:
-                    mrcnn_class_logits = mrcnn_class_logits.cuda()
-                    mrcnn_class = mrcnn_class.cuda()
-                    mrcnn_bbox = mrcnn_bbox.cuda()
-                    mrcnn_mask = mrcnn_mask.cuda()
+                mrcnn_class_logits = torch.FloatTensor().to(config.DEVICE)
+                mrcnn_class = torch.IntTensor().to(config.DEVICE)
+                mrcnn_bbox = torch.FloatTensor().to(config.DEVICE)
+                mrcnn_mask = torch.FloatTensor().to(config.DEVICE)
             else:
                 # Network Heads
                 mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(mrcnn_feature_maps, rois)
@@ -144,15 +140,13 @@ class MaskRCNN(nn.Module):
             with torch.no_grad():
                 # Detections
                 # output is [batch, num_detections, (y1, x1, y2, x2, class_id, score)] in image coordinates
-                detections = filter_detections_batch(self.config, rpn_rois, mrcnn_class, mrcnn_bbox, image_metas)
+                detections = filter_detections_batch(config, rpn_rois, mrcnn_class, mrcnn_bbox, image_metas)
 
                 # Convert boxes to normalized coordinates
                 # TODO: let DetectionLayer return normalized coordinates to avoid
                 #       unnecessary conversions
-                h, w = self.config.IMAGE_SHAPE[:2]
-                scale = torch.from_numpy(np.array([h, w, h, w])).float()
-                if self.config.GPU_COUNT:
-                    scale = scale.cuda()
+                h, w = config.IMAGE_SHAPE[:2]
+                scale = torch.tensor([h, w, h, w], dtype=torch.float).to(config.DEVICE)
                 detection_boxes = detections[:, :4] / scale
 
                 # Add back batch dimension
@@ -286,15 +280,14 @@ class MaskRCNN(nn.Module):
         scores: [N] float probability scores for the class IDs
         masks: [H, W, N] instance binary masks
         """
+        config = self.config
         self.eval()
         with torch.no_grad():
             # Mold inputs to format expected by the neural network
-            molded_images, image_metas, windows = image_utils.mold_inputs(images, self.config)
+            molded_images, image_metas, windows = image_utils.mold_inputs(images, config)
 
             # Convert images to torch tensor
-            molded_images = torch.from_numpy(molded_images.transpose(0, 3, 1, 2)).float()
-            if self.config.GPU_COUNT:
-                molded_images = molded_images.cuda()
+            molded_images = torch.from_numpy(molded_images.transpose(0, 3, 1, 2)).float().to(config.DEVICE)
 
             # Run object detection
             detections, mrcnn_mask = self([molded_images, image_metas], mode="detection")

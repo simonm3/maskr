@@ -47,7 +47,7 @@ dataset_val.load_nuke(trainpath, "valid")
 dataset_val.prepare()
 
 # create model with pretrained weights except for heads
-model = MaskRCNN(model_dir=MODEL_DIR, config=config)
+model = MaskRCNN(model_dir=MODEL_DIR, config=config).to(config.DEVICE)
 model.initialize_weights()
 params = torch.load(COCO_MODEL_PATH)
 params.pop('classifier.linear_class.weight')
@@ -57,8 +57,6 @@ params.pop('classifier.linear_class.bias')
 params.pop("classifier.linear_bbox.bias")
 params.pop("mask.conv5.bias")
 model.load_state_dict(params, strict=False)
-if config.GPU_COUNT:
-    model = model.cuda()
 
 # train
 learner = Learner(model, dataset_train, dataset_val)

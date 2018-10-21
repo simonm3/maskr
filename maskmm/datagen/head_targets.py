@@ -42,7 +42,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
 
     # Normalize coordinates
     h, w = config.IMAGE_SHAPE[:2]
-    scale = torch.from_numpy(np.array([h, w, h, w])).float().to(config.DEVICE)
+    scale = torch.tensor([h, w, h, w], dtype=torch.float32).to(config.DEVICE)
     gt_boxes = gt_boxes / scale
 
     # Handle COCO crowds
@@ -58,14 +58,14 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         gt_masks = gt_masks[non_crowd_ix.data, :]
 
         # Compute overlaps with crowd boxes [anchors, crowds]
-        crowd_overlaps = box_utils.torch_compute_overlaps(proposals, crowd_boxes)
+        crowd_overlaps = box_utils.compute_overlaps(proposals, crowd_boxes)
         crowd_iou_max = torch.max(crowd_overlaps, dim=1)[0]
         no_crowd_bool = crowd_iou_max < 0.001
     else:
         no_crowd_bool = torch.ByteTensor(proposals.size()[0] * [True]).to(config.DEVICE)
 
     # Compute overlaps matrix [proposals, gt_boxes]
-    overlaps = box_utils.torch_compute_overlaps(proposals, gt_boxes)
+    overlaps = box_utils.compute_overlaps(proposals, gt_boxes)
 
     # Determine postive and negative ROIs
     roi_iou_max = torch.max(overlaps, dim=1)[0]
@@ -94,7 +94,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
 
         # Compute bbox refinement for positive ROI
         deltas = box_utils.box_refinement(positive_rois.data, roi_gt_boxes.data)
-        std_dev = torch.from_numpy(config.BBOX_STD_DEV).float().to(config.DEVICE)
+        std_dev = torch.tensor(config.BBOX_STD_DEV, dtype=torch.float32).to(config.DEVICE)
         deltas /= std_dev
 
         # Assign positive ROIs to GT masks

@@ -42,7 +42,7 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
         gt_class_ids = gt_class_ids[non_crowd_ix]
         gt_boxes = gt_boxes[non_crowd_ix]
         # Compute overlaps with crowd boxes [anchors, crowds]
-        crowd_overlaps = box_utils.torch_compute_overlaps(anchors, crowd_boxes)
+        crowd_overlaps = box_utils.compute_overlaps(anchors, crowd_boxes)
         crowd_iou_max = torch.max(crowd_overlaps, dim=1, dtype=torch.uint8, device=device)
         no_crowd_bool = (crowd_iou_max < 0.001)
     else:
@@ -52,7 +52,7 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     # Compute overlaps [num_anchors, num_gt_boxes]
     save(anchors, "anchors_pre")
     save(gt_boxes, "gt_boxes_pre")
-    overlaps = box_utils.torch_compute_overlaps(anchors, gt_boxes)
+    overlaps = box_utils.compute_overlaps(anchors, gt_boxes)
     save(overlaps, "overlaps")
 
     # Match anchors to GT Boxes

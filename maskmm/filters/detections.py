@@ -48,24 +48,18 @@ def filter_detections(rois, probs, deltas, window, config):
 
     # Class probability of the top class of each ROI
     # Class-specific bounding box deltas
-    idx = torch.arange(class_ids.size()[0]).long()
-    if config.GPU_COUNT:
-        idx = idx.cuda()
+    idx = torch.arange(len(class_ids), dtype=torch.long).to(config.DEVICE)
     class_scores = probs[idx, class_ids]
     deltas_specific = deltas[idx, class_ids]
 
     # Apply bounding box deltas
     # Shape: [boxes, (y1, x1, y2, x2)] in normalized coordinates
-    std_dev = torch.from_numpy(np.reshape(config.RPN_BBOX_STD_DEV, [1, 4])).float()
-    if config.GPU_COUNT:
-        std_dev = std_dev.cuda()
+    std_dev = torch.tensor(config.RPN_BBOX_STD_DEV, dtype=torch.float).reshape([1, 4]).to(config.DEVICE)
     refined_rois = box_utils.apply_box_deltas(rois, deltas_specific * std_dev)
 
     # Convert coordiates to image domain
     height, width = config.IMAGE_SHAPE[:2]
-    scale = torch.from_numpy(np.array([height, width, height, width])).float()
-    if config.GPU_COUNT:
-        scale = scale.cuda()
+    scale = torch.tensor([height, width, height, width], dtype=torch.float).to(config.DEVICE)
     refined_rois *= scale
 
     # Clip boxes to image window

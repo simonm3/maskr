@@ -134,19 +134,18 @@ def unmold_detections(detections, mrcnn_mask, image_shape, window):
 
     return boxes, class_ids, scores, full_masks
 
-def mold_image(images, config):
-    """Takes RGB images with 0-255 values and subtraces
-    the mean pixel and converts it to float. Expects image
-    colors in RGB order.
+def mold_image(image, config):
+    """ Prepares RGB image with 0-255 values for input to model
     """
-    images = images.astype(np.float32) - config.MEAN_PIXEL
-    return images
+    image = image - config.MEAN_PIXEL
+    image = image.astype(np.float32).transpose(2, 0, 1)
+    return image
 
-
-def unmold_image(images, config):
-    """Takes a image normalized with mold() and returns the original."""
-    images = images.cpu().numpy().transpose(1, 2, 0)
-    return (images + config.MEAN_PIXEL).astype(np.uint8)
+def unmold_image(image, config):
+    """ reverses mold_image """
+    image = image.cpu().numpy().transpose(1, 2, 0)
+    image = (image + config.MEAN_PIXEL).astype(np.uint8)
+    return image
 
 def resize_image(image, min_dim=None, max_dim=None, padding=False):
     """

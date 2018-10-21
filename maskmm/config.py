@@ -99,7 +99,7 @@ class Config(object):
     IMAGE_PADDING = True  # currently, the False option is not supported
 
     # Image mean (RGB)
-    MEAN_PIXEL = np.array([123.7, 116.8, 103.9])
+    MEAN_PIXEL = [123.7, 116.8, 103.9]
 
     # Number of ROIs per image to feed to classifier/mask heads
     # The Mask RCNN paper uses 512 but often the RPN doesn't generate
@@ -120,8 +120,8 @@ class Config(object):
     MAX_GT_INSTANCES = 100
 
     # Bounding box refinement standard deviation for RPN and final detections.
-    RPN_BBOX_STD_DEV = np.array([0.1, 0.1, 0.2, 0.2])
-    BBOX_STD_DEV = np.array([0.1, 0.1, 0.2, 0.2])
+    RPN_BBOX_STD_DEV = [0.1, 0.1, 0.2, 0.2]
+    BBOX_STD_DEV = [0.1, 0.1, 0.2, 0.2]
 
     # Max number of final detections
     DETECTION_MAX_INSTANCES = 100
@@ -159,9 +159,11 @@ class Config(object):
         if self.GPU_COUNT > 0:
             self.DEVICE = torch.device("cuda")
             self.BATCH_SIZE = self.IMAGES_PER_GPU * self.GPU_COUNT
+            torch.set_default_tensor_type(torch.cuda.FloatTensor)
         else:
             self.DEVICE = torch.device("cpu")
             self.BATCH_SIZE = self.IMAGES_PER_GPU
+            torch.set_default_tensor_type(torch.FloatTensor)
 
         # Adjust step size based on batch size
         self.STEPS_PER_EPOCH = self.BATCH_SIZE * self.STEPS_PER_EPOCH

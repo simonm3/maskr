@@ -198,14 +198,7 @@ if __name__ == '__main__':
     config.display()
 
     # Create model
-    if args.command == "train":
-        model = MaskRCNN(config=config,
-                                  model_dir=args.logs)
-    else:
-        model = MaskRCNN(config=config,
-                                  model_dir=args.logs)
-    if config.GPU_COUNT:
-        model = model.cuda()
+    model = MaskRCNN(config=config, model_dir=args.logs).to(config.DEVICE)
 
     # Select weights file to load
     if args.model:
