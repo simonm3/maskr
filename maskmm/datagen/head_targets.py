@@ -42,7 +42,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
 
     # Normalize coordinates
     h, w = config.IMAGE_SHAPE[:2]
-    scale = torch.tensor([h, w, h, w], dtype=torch.float32).to(config.DEVICE)
+    scale = torch.tensor([h, w, h, w], dtype=torch.float32)
     gt_boxes = gt_boxes / scale
 
     # Handle COCO crowds
@@ -62,7 +62,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         crowd_iou_max = torch.max(crowd_overlaps, dim=1)[0]
         no_crowd_bool = crowd_iou_max < 0.001
     else:
-        no_crowd_bool = torch.ByteTensor(proposals.size()[0] * [True]).to(config.DEVICE)
+        no_crowd_bool = torch.ByteTensor(proposals.size()[0] * [True])
 
     # Compute overlaps matrix [proposals, gt_boxes]
     overlaps = box_utils.compute_overlaps(proposals, gt_boxes)
@@ -80,8 +80,8 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
 
         positive_count = int(config.TRAIN_ROIS_PER_IMAGE *
                              config.ROI_POSITIVE_RATIO)
-        rand_idx = torch.randperm(len(positive_indices))
-        rand_idx = rand_idx[:positive_count].to(config.DEVICE)
+        rand_idx = torch.randperm(len(positive_indices), device="cpu")
+        rand_idx = rand_idx[:positive_count]
         positive_indices = positive_indices[rand_idx]
         positive_count = len(positive_indices)
         positive_rois = proposals[positive_indices.data, :]
@@ -94,7 +94,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
 
         # Compute bbox refinement for positive ROI
         deltas = box_utils.box_refinement(positive_rois.data, roi_gt_boxes.data)
-        std_dev = torch.tensor(config.BBOX_STD_DEV, dtype=torch.float32).to(config.DEVICE)
+        std_dev = torch.tensor(config.BBOX_STD_DEV, dtype=torch.float32)
         deltas /= std_dev
 
         # Assign positive ROIs to GT masks
@@ -114,7 +114,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
             y2 = (y2 - gt_y1) / gt_h
             x2 = (x2 - gt_x1) / gt_w
             boxes = torch.cat([y1, x1, y2, x2], dim=1)
-        box_ids = torch.arange(len(roi_masks)).int().to(config.DEVICE)
+        box_ids = torch.arange(len(roi_masks)).int()
         masks = CropAndResizeFunction(config.MASK_SHAPE[0], config.MASK_SHAPE[1], 0) \
             (roi_masks.unsqueeze(1), boxes, box_ids)
         masks = masks.squeeze(1)
@@ -133,8 +133,8 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         negative_indices = torch.nonzero(negative_roi_bool)[:, 0]
         r = 1.0 / config.ROI_POSITIVE_RATIO
         negative_count = int(r * positive_count - positive_count)
-        rand_idx = torch.randperm(len(negative_indices))
-        rand_idx = rand_idx[:negative_count].to(config.DEVICE)
+        rand_idx = torch.randperm(len(negative_indices), device="cpu")
+        rand_idx = rand_idx[:negative_count]
         negative_indices = negative_indices[rand_idx]
         negative_count = len(negative_indices)
         negative_rois = proposals[negative_indices.data, :]
@@ -145,27 +145,27 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     # are not used for negative ROIs with zeros.
     if positive_count > 0 and negative_count > 0:
         rois = torch.cat((positive_rois, negative_rois), dim=0)
-        zeros = torch.zeros(negative_count).int().to(config.DEVICE)
+        zeros = torch.zeros(negative_count).int()
         roi_gt_class_ids = torch.cat([roi_gt_class_ids, zeros], dim=0)
-        zeros = torch.zeros(negative_count, 4).to(config.DEVICE)
+        zeros = torch.zeros(negative_count, 4)
         deltas = torch.cat([deltas, zeros], dim=0)
-        zeros = torch.zeros(negative_count, config.MASK_SHAPE[0], config.MASK_SHAPE[1]).to(config.DEVICE)
+        zeros = torch.zeros(negative_count, config.MASK_SHAPE[0], config.MASK_SHAPE[1])
         masks = torch.cat([masks, zeros], dim=0)
     elif positive_count > 0:
         rois = positive_rois
     elif negative_count > 0:
         rois = negative_rois
-        zeros = torch.zeros(negative_count).to(config.DEVICE)
+        zeros = torch.zeros(negative_count)
         roi_gt_class_ids = zeros
-        zeros = torch.zeros(negative_count, 4).int().to(config.DEVICE)
+        zeros = torch.zeros(negative_count, 4).int()
         deltas = zeros
-        zeros = torch.zeros(negative_count, config.MASK_SHAPE[0], config.MASK_SHAPE[1]).to(config.DEVICE)
+        zeros = torch.zeros(negative_count, config.MASK_SHAPE[0], config.MASK_SHAPE[1])
         masks = zeros
     else:
-        rois = torch.FloatTensor().to(config.DEVICE)
-        roi_gt_class_ids = torch.IntTensor().to(config.DEVICE)
-        deltas = torch.FloatTensor().to(config.DEVICE)
-        masks = torch.FloatTensor().to(config.DEVICE)
+        rois = torch.FloatTensor()
+        roi_gt_class_ids = torch.IntTensor()
+        deltas = torch.FloatTensor()
+        masks = torch.FloatTensor()
 
     save(rois, "rois")
     save(roi_gt_class_ids,"roi_gt_class_ids")

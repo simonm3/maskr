@@ -16,20 +16,16 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
                1 = positive anchor, -1 = negative anchor, 0 = neutral
     rpn_bbox: [N, (dy, dx, log(dh), log(dw))] Anchor bbox deltas.
     """
-    device = config.DEVICE
-
-    #torch.set_default_tensor_type(torch.cuda.FloatTensor)
-
     # todo move earlier
-    anchors = torch.Tensor(anchors).to(device)
-    gt_class_ids = torch.Tensor(gt_class_ids).to(device)
-    gt_boxes = torch.Tensor(gt_boxes).to(device)
+    anchors = torch.Tensor(anchors)
+    gt_class_ids = torch.Tensor(gt_class_ids)
+    gt_boxes = torch.Tensor(gt_boxes)
 
     # todo move padding to end??
     # RPN Match: 1 = positive anchor, -1 = negative anchor, 0 = neutral
-    rpn_match = torch.zeros([anchors.shape[0]], dtype=torch.int32, device=device)
+    rpn_match = torch.zeros([anchors.shape[0]], dtype=torch.int32)
     # RPN bounding boxes: [max anchors per image, (dy, dx, log(dh), log(dw))]
-    rpn_bbox = torch.zeros((config.RPN_TRAIN_ANCHORS_PER_IMAGE, 4), device=device)
+    rpn_bbox = torch.zeros((config.RPN_TRAIN_ANCHORS_PER_IMAGE, 4))
 
     # Handle COCO crowds
     # A crowd box in COCO is a bounding box around several instances. Exclude
@@ -43,11 +39,11 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
         gt_boxes = gt_boxes[non_crowd_ix]
         # Compute overlaps with crowd boxes [anchors, crowds]
         crowd_overlaps = box_utils.compute_overlaps(anchors, crowd_boxes)
-        crowd_iou_max = torch.max(crowd_overlaps, dim=1, dtype=torch.uint8, device=device)
+        crowd_iou_max = torch.max(crowd_overlaps, dim=1, dtype=torch.uint8)
         no_crowd_bool = (crowd_iou_max < 0.001)
     else:
         # All anchors don't intersect a crowd
-        no_crowd_bool = torch.ones([anchors.shape[0]], dtype=torch.uint8, device=device)
+        no_crowd_bool = torch.ones([anchors.shape[0]], dtype=torch.uint8)
 
     # Compute overlaps [num_anchors, num_gt_boxes]
     save(anchors, "anchors_pre")
@@ -110,10 +106,10 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     data = box_utils.box_refinement(anchors[ids], gt_boxes[anchor_iou_argmax[ids]])
 
     # todo is padding needed? included to enable match with original
-    rpn_bbox = torch.zeros((config.RPN_TRAIN_ANCHORS_PER_IMAGE, 4), dtype=torch.float, device=device)
+    rpn_bbox = torch.zeros((config.RPN_TRAIN_ANCHORS_PER_IMAGE, 4), dtype=torch.float)
     rpn_bbox[:len(data)] = data
 
     # Normalize
-    rpn_bbox /= torch.tensor(config.RPN_BBOX_STD_DEV, dtype=torch.float, device=device)
+    rpn_bbox /= torch.tensor(config.RPN_BBOX_STD_DEV, dtype=torch.float)
 
     return rpn_match, rpn_bbox
