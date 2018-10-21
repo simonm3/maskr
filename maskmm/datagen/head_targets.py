@@ -2,6 +2,7 @@ import torch
 from maskmm.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
 from maskmm.utils import box_utils
 import numpy as np
+from maskmm.mytools import *
 
 import logging
 log = logging.getLogger()
@@ -36,6 +37,8 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     gt_class_ids = gt_class_ids.squeeze(0)
     gt_boxes = gt_boxes.squeeze(0)
     gt_masks = gt_masks.squeeze(0)
+
+    save(proposals, "proposals")
 
     # Normalize coordinates
     h, w = config.IMAGE_SHAPE[:2]
@@ -163,5 +166,10 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         roi_gt_class_ids = torch.IntTensor().to(config.DEVICE)
         deltas = torch.FloatTensor().to(config.DEVICE)
         masks = torch.FloatTensor().to(config.DEVICE)
+
+    save(rois, "rois")
+    save(roi_gt_class_ids,"roi_gt_class_ids")
+    save(deltas, "deltas")
+    save(masks, "masks")
 
     return rois, roi_gt_class_ids, deltas, masks

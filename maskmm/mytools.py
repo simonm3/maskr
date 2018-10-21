@@ -58,13 +58,14 @@ def mse(a, b):
 
 def match(file1, file2=None, tol=TOL):
     """ return true if mse < tol
-    file1, file2 are filenames. file contains ndarray or tensor
+    file1, file2 are filenames. file contains ndarray or tensor. both are converted to tensors
     if b==None then uses a+"0"
     """
     if file2 is None:
         file2 = file1 + "0"
-    a = load(file1)
-    b = load(file2)
+    a = torch.tensor(load(file1)).float()
+    b = torch.tensor(load(file2)).float()
+
     if a.shape != b.shape:
         log.info(f"different shapes a={a.shape} b={b.shape}")
         return False

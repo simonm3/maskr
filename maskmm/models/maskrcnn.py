@@ -223,7 +223,7 @@ class MaskRCNN(nn.Module):
 
         # Directory for training logs
         self.log_dir = os.path.join(self.model_dir,
-                                    f"{self.config.NAME.lower()}{datetime.datetime.now().strftime('%Y%m%%d_%H%M')}")
+                                    f"{self.config.NAME.lower()}{datetime.datetime.now().strftime('%Y%m%d_%H%M')}")
         os.makedirs(self.log_dir, exist_ok=True)
 
         # Path to save after each epoch. Include placeholders that get filled by Keras.

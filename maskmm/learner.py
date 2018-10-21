@@ -54,8 +54,8 @@ class Learner:
             layers = layer_regex[layers]
 
         # Data generators
-        train_generator = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=0)
-        val_generator = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=0)
+        train_generator = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False, num_workers=0)
+        val_generator = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=0)
 
         # Train
         log1("\nStarting at epoch {}. LR={}\n".format(model.epoch + 1, learning_rate))
@@ -79,18 +79,19 @@ class Learner:
             # Training
             model.train()
             model.optimizer.zero_grad()
-            # Set batchnorm always in eval mode during training
+
             def set_bn_eval(m):
                 classname = m.__class__.__name__
                 if classname.find('BatchNorm') != -1:
                     m.eval()
             model.apply(set_bn_eval)
+
             losses = self.run_epoch(train_generator, model.config.STEPS_PER_EPOCH,
                                     mode="training")
+
             self.loss_history.append(losses)
 
             # Validation
-            log.info(rngnext())
             model.train()
             model.apply(set_bn_eval)
             with torch.no_grad():

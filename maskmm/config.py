@@ -150,6 +150,9 @@ class Config(object):
     # train the RPN.
     USE_RPN_ROIS = True
 
+    # set to True to use numpy random numbers to compare against numpy version
+    NPRANDOM = False
+
     def __init__(self):
         """Set values of computed attributes."""
         # Effective batch size

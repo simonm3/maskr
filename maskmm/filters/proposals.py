@@ -2,6 +2,8 @@ import torch
 import numpy as np
 from maskmm.utils import box_utils
 from maskmm.lib.nms.nms_wrapper import nms
+
+from maskmm.mytools import *
 import logging
 log = logging.getLogger()
 
@@ -19,23 +21,22 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
         Proposals in normalized coordinates [batch, rois, (y1, x1, y2, x2)]
     """
     # todo fudge to get working
-    anchors = torch.Tensor(anchors)
-    if config.GPU_COUNT>0:
-        anchors = torch.Tensor(anchors).cuda()
+    anchors = torch.Tensor(anchors).to(config.DEVICE)
 
     with torch.no_grad():
         # Currently only supports batchsize 1
         inputs[0] = inputs[0].squeeze(0)
         inputs[1] = inputs[1].squeeze(0)
 
+        save(inputs[0], "inputs0")
+        save(inputs[1], "inputs1")
+
         # Box Scores. Use the foreground class confidence. [Batch, num_rois, 1]
         scores = inputs[0][:, 1]
 
         # Box deltas [batch, num_rois, 4]
         deltas = inputs[1]
-        std_dev = torch.from_numpy(np.reshape(config.RPN_BBOX_STD_DEV, [1, 4])).float()
-        if config.GPU_COUNT:
-            std_dev = std_dev.cuda()
+        std_dev = torch.from_numpy(np.reshape(config.RPN_BBOX_STD_DEV, [1, 4])).float().to(config.DEVICE)
         deltas = deltas * std_dev
 
         # Improve performance by trimming to top anchors by score
@@ -66,12 +67,11 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
         boxes = boxes[keep, :]
 
         # Normalize dimensions to range of 0 to 1.
-        norm = torch.from_numpy(np.array([height, width, height, width])).float()
-        if config.GPU_COUNT:
-            norm = norm.cuda()
+        norm = torch.from_numpy(np.array([height, width, height, width])).float().to(config.DEVICE)
         normalized_boxes = boxes / norm
 
         # Add back batch dimension
         normalized_boxes = normalized_boxes.unsqueeze(0)
 
+        save(normalized_boxes, "normalized_boxes")
         return normalized_boxes
