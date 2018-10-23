@@ -121,7 +121,7 @@ def _make_python_wrapper(name, cffi_wrapper_name, target_dir):
         f.write(py_source)
 
 
-[docs]def create_extension(name, headers, sources, verbose=True, with_cuda=False,
+def create_extension(name, headers, sources, verbose=True, with_cuda=False,
                      package=False, relative_to='.', **kwargs):
     """Creates and configures a cffi.FFI object, that builds PyTorch extension.
 

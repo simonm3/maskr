@@ -165,8 +165,8 @@ def resize_image(image, config):
     padding: Padding added to the image [(top, bottom), (left, right), (0, 0)]
     """
     # Default window (y1, x1, y2, x2) and default scale == 1.
-    min_dim = config.IMAGE_MIN_DIM,
-    max_dim = config.IMAGE_MAX_DIM,
+    min_dim = config.IMAGE_MIN_DIM
+    max_dim = config.IMAGE_MAX_DIM
     padding = config.IMAGE_PADDING
 
     h, w = image.shape[:2]
@@ -278,20 +278,19 @@ def unmold_mask(mask, bbox, image_shape):
 
 ######### image and mask
 
-def augment(img, masks):
+def augment(img, masks=None):
     """ augment image and maskss """
 
     # use same seed for image and maskss to apply same transforms
     seed = np.random.randint(1e6)
 
     img = augment_image(img, seed)
-    if masks:
+    if masks is None:
+        return img
+    else:
         for i in range(masks.shape[2]):
             masks[:, :, i] = augment_image(masks[:, :, i])
         return img, masks
-    else:
-        return img
-
 
 def augment_image(img, vflip=.5, hflip=.5, angle=360, shear=.3, seed=np.random.seed()):
     """ apply random transformations to an image
