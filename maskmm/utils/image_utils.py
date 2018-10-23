@@ -26,7 +26,7 @@ def compose_image_meta(image_id, image_shape, window, active_class_ids):
         list(window) +          # size=4 (y1, x1, y2, x2) in image cooredinates
         list(active_class_ids)  # size=num_classes
     )
-    return torch.tensor(meta, dtype=float)
+    return torch.tensor(meta, dtype=torch.float)
 
 def parse_image_meta(meta):
     """Parses an image info Numpy array to its components.

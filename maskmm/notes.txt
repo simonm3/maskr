@@ -5,11 +5,3 @@ maskmm0
     make.sh
     ln -s <link to maskrcnn trained model>
     python demo.py
-todo
-    move maskmm0/nms and maskmm0/roialign to maskmm/lib
-    maskmm0 coco.py=>nuke.py for training
-    check training
-
-
-
-
