@@ -198,7 +198,7 @@ if __name__ == '__main__':
     config.display()
 
     # Create model
-    model = MaskRCNN(config=config, model_dir=args.logs).to(config.DEVICE)
+    model = MaskRCNN(config=config, model_dir=args.logs)
 
     # Select weights file to load
     if args.model:

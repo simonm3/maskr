@@ -159,36 +159,30 @@ class Dataset(Dataset):
         image, image_metas, gt_class_ids, gt_boxes, gt_masks = \
             self.load_image_gt(image_id, use_mini_mask=self.config.USE_MINI_MASK)
 
-        # Skip images that have no instances. This can happen in cases
-        # where we train on a subset of classes and the image doesn't
-        # have any of the classes we care about.
-        if not np.any(gt_class_ids > 0):
+        # If no instances then skip. e.g. image has none of classes we care about.
+        if gt_class_ids.eq(0).all():
             return None
 
-        rpn_match, rpn_bbox = build_rpn_targets(self.config.ANCHORS, gt_class_ids, gt_boxes, self.config)
-
-        # If more instances than fits in the array, sub-sample from them.
-        if gt_boxes.shape[0] > self.config.MAX_GT_INSTANCES:
+        # If too many instances than subsample.
+        if len(gt_boxes) > self.config.MAX_GT_INSTANCES:
             ids = np.random.choice(
                 np.arange(gt_boxes.shape[0]), self.config.MAX_GT_INSTANCES, replace=False)
             gt_class_ids = gt_class_ids[ids]
             gt_boxes = gt_boxes[ids]
             gt_masks = gt_masks[:, :, ids]
 
-        # mold image
+        # image and masks
         image = image_utils.mold_image(image, self.config)
+        image_metas = torch.tensor(image_metas)
+        gt_masks = gt_masks.permute(2, 0, 1).float()
 
-        # Convert
-        image = torch.from_numpy(image)
-        image_metas = torch.from_numpy(image_metas)
-        gt_class_ids = torch.from_numpy(gt_class_ids)
-        gt_boxes = torch.from_numpy(gt_boxes).float()
-        gt_masks = torch.from_numpy(gt_masks.astype(int).transpose(2, 0, 1)).float()
+        # rpn_targets
+        rpn_match, rpn_bbox = build_rpn_targets(self.config.ANCHORS, gt_class_ids, gt_boxes, self.config)
 
         return image, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks
 
     def __len__(self):
-        return self.image_ids.shape[0]
+        return len(self.image_ids)
 
     def load_image_gt(self, image_id, use_mini_mask=False):
         """Load and return ground truth data for an image (image, mask, bounding boxes).
@@ -211,37 +205,29 @@ class Dataset(Dataset):
         # Load image and mask
         image = self.load_image(image_id)
         mask, class_ids = self.load_mask(image_id)
+        class_ids = torch.tensor(class_ids, dtype=torch.float)
         shape = image.shape
-        image, window, scale, padding = image_utils.resize_image(
-            image,
-            min_dim=self.config.IMAGE_MIN_DIM,
-            max_dim=self.config.IMAGE_MAX_DIM,
-            padding=self.config.IMAGE_PADDING)
+
+        # resize image and mask
+        image, window, scale, padding = image_utils.resize_image(image, self.config)
         mask = image_utils.resize_mask(mask, scale, padding)
 
-        # Random horizontal flips.
+        # augment image and mask
         if self.augment:
-            if random.randint(0, 1):
-                image = np.fliplr(image)
-                mask = np.fliplr(mask)
+            image, mask = image_utils.augment(image, mask)
 
-        # Bounding boxes. Note that some boxes might be all zeros
-        # if the corresponding mask got cropped out.
-        # bbox: [num_instances, (y1, x1, y2, x2)]
+        # Bounding boxes. some boxes might be all zeros if the corresponding mask got cropped out.
         bbox = box_utils.extract_bboxes(mask)
 
-        # Active classes
-        # Different datasets have different classes, so track the
-        # classes supported in the dataset of this image.
-        active_class_ids = np.zeros([self.num_classes], dtype=np.int32)
-        source_class_ids = self.source_class_ids[self.image_info[image_id]["source"]]
-        active_class_ids[source_class_ids] = 1
-
-        # Resize masks to smaller size to reduce memory usage
+        # compress masks to reduce memory usage
         if use_mini_mask:
             mask = image_utils.minimize_mask(bbox, mask, self.config.MINI_MASK_SHAPE)
+        mask = torch.tensor(mask.astype(int), dtype=torch.int)
 
-        # Image meta data
+        # Active classes are those active in this dataset.
+        active_class_ids = np.zeros([self.num_classes])
+        source_class_ids = self.source_class_ids[self.image_info[image_id]["source"]]
+        active_class_ids[source_class_ids] = 1
         image_meta = image_utils.compose_image_meta(image_id, shape, window, active_class_ids)
 
         return image, image_meta, class_ids, bbox, mask

@@ -184,6 +184,7 @@ class Config(object):
                                                 self.BACKBONE_SHAPES,
                                                 self.BACKBONE_STRIDES,
                                                 self.RPN_ANCHOR_STRIDE)
+        self.ANCHORS = torch.tensor(self.ANCHORS, dtype=torch.float)
 
     def display(self):
         """Display Configuration values."""

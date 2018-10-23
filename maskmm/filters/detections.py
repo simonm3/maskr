@@ -13,9 +13,7 @@ def unique1d(tensor):
         return tensor
     tensor = tensor.sort()[0]
     unique_bool = tensor[1:] != tensor[:-1]
-    first_element = torch.ByteTensor([True])
-    if tensor.is_cuda:
-        first_element = first_element.cuda()
+    first_element = torch.tensor([True], dtype=torch.uint8)
     unique_bool = torch.cat((first_element, unique_bool), dim=0)
     return tensor[unique_bool.data]
 
@@ -48,18 +46,18 @@ def filter_detections(rois, probs, deltas, window, config):
 
     # Class probability of the top class of each ROI
     # Class-specific bounding box deltas
-    idx = torch.arange(len(class_ids), dtype=torch.long).to(config.DEVICE)
+    idx = torch.arange(len(class_ids), dtype=torch.long)
     class_scores = probs[idx, class_ids]
     deltas_specific = deltas[idx, class_ids]
 
     # Apply bounding box deltas
     # Shape: [boxes, (y1, x1, y2, x2)] in normalized coordinates
-    std_dev = torch.tensor(config.RPN_BBOX_STD_DEV, dtype=torch.float).reshape([1, 4]).to(config.DEVICE)
+    std_dev = torch.tensor(config.RPN_BBOX_STD_DEV, dtype=torch.float).reshape([1, 4])
     refined_rois = box_utils.apply_box_deltas(rois, deltas_specific * std_dev)
 
     # Convert coordiates to image domain
     height, width = config.IMAGE_SHAPE[:2]
-    scale = torch.tensor([height, width, height, width], dtype=torch.float).to(config.DEVICE)
+    scale = torch.tensor([height, width, height, width], dtype=torch.float)
     refined_rois *= scale
 
     # Clip boxes to image window
@@ -68,10 +66,9 @@ def filter_detections(rois, probs, deltas, window, config):
     # Round and cast to int since we're deadling with pixels now
     refined_rois = torch.round(refined_rois)
 
-    # TODO: Filter out boxes with zero area
-
-    # Filter out background boxes
-    keep_bool = class_ids > 0
+    # Filter out boxes with zero area or background
+    areas = (refined_rois[:, 2] - refined_rois[:, 0]) * (refined_rois[:, 3] - refined_rois[:, 1])
+    keep_bool = areas.ne(0) & class_ids.ne(0)
 
     # Filter out low confidence boxes
     if config.DETECTION_MIN_CONFIDENCE:

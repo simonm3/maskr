@@ -4,7 +4,7 @@ import random
 import skimage.io
 import matplotlib.pyplot as plt
 
-from datasets.coco import Config
+from datasets.coco.config import Config
 from maskmm.models import maskrcnn
 from maskmm.utils import visualize
 
@@ -23,7 +23,7 @@ IMAGE_DIR = os.path.join(ROOT_DIR, "data/images")
 # Create model with coco weights
 config = Config()
 config.display()
-model = maskrcnn.MaskRCNN(model_dir=MODEL_DIR, config=config).to(config.DEVICE)
+model = maskrcnn.MaskRCNN(model_dir=MODEL_DIR, config=config)
 
 model.load_state_dict(torch.load(COCO_MODEL_PATH))
 

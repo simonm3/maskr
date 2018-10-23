@@ -1,6 +1,6 @@
 import os
 import torch
-from torch.utils.ffi import create_extension
+from maskmm.lib.ffi import create_extension
 
 
 sources = ['src/nms.c']

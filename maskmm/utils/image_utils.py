@@ -1,6 +1,9 @@
 import numpy as np
 import scipy.misc, scipy.ndimage
-from maskmm.utils import image_utils
+import torch
+from skimage.transform import rotate, warp, AffineTransform
+import logging
+log = logging.getLogger()
 
 import warnings
 warnings.filterwarnings('ignore', '.*output shape of zoom.*')
@@ -23,7 +26,7 @@ def compose_image_meta(image_id, image_shape, window, active_class_ids):
         list(window) +          # size=4 (y1, x1, y2, x2) in image cooredinates
         list(active_class_ids)  # size=num_classes
     )
-    return meta
+    return torch.tensor(meta, dtype=float)
 
 def parse_image_meta(meta):
     """Parses an image info Numpy array to its components.
@@ -52,21 +55,15 @@ def mold_inputs(images, config):
     windows = []
     for image in images:
         # Resize image to fit the model expected size
-        # TODO: move resizing to mold_image()
-        molded_image, window, scale, padding = image_utils.resize_image(
-            image,
-            min_dim=config.IMAGE_MIN_DIM,
-            max_dim=config.IMAGE_MAX_DIM,
-            padding=config.IMAGE_PADDING)
+        molded_image, window, scale, padding = resize_image(image, config)
         molded_image = mold_image(molded_image, config)
-        # Build image_meta
-        image_meta = compose_image_meta(
-            0, image.shape, window,
-            np.zeros([config.NUM_CLASSES], dtype=np.int32))
+        image_meta = compose_image_meta(0, image.shape, window, np.zeros([config.NUM_CLASSES], dtype=np.int32))
+
         # Append
         molded_images.append(molded_image)
         windows.append(window)
         image_metas.append(image_meta)
+
     # Pack into arrays
     molded_images = np.stack(molded_images)
     image_metas = np.stack(image_metas)
@@ -137,17 +134,18 @@ def unmold_detections(detections, mrcnn_mask, image_shape, window):
 def mold_image(image, config):
     """ Prepares RGB image with 0-255 values for input to model
     """
-    image = image - config.MEAN_PIXEL
-    image = image.astype(np.float32).transpose(2, 0, 1)
+    image = image - torch.tensor(config.MEAN_PIXEL, dtype=torch.float)
+    image = torch.tensor(image, dtype=torch.float32)
+    image = image.permute(2, 0, 1)
     return image
 
 def unmold_image(image, config):
     """ reverses mold_image """
-    image = image.cpu().numpy().transpose(1, 2, 0)
+    image = image.permute(1, 2, 0).cpu().numpy()
     image = (image + config.MEAN_PIXEL).astype(np.uint8)
     return image
 
-def resize_image(image, min_dim=None, max_dim=None, padding=False):
+def resize_image(image, config):
     """
     Resizes an image keeping the aspect ratio.
 
@@ -167,6 +165,10 @@ def resize_image(image, min_dim=None, max_dim=None, padding=False):
     padding: Padding added to the image [(top, bottom), (left, right), (0, 0)]
     """
     # Default window (y1, x1, y2, x2) and default scale == 1.
+    min_dim = config.IMAGE_MIN_DIM,
+    max_dim = config.IMAGE_MAX_DIM,
+    padding = config.IMAGE_PADDING
+
     h, w = image.shape[:2]
     window = (0, 0, h, w)
     scale = 1
@@ -210,7 +212,6 @@ def resize_mask(mask, scale, padding):
     padding: Padding to add to the mask in the form
             [(top, bottom), (left, right), (0, 0)]
     """
-    h, w = mask.shape[:2]
     mask = scipy.ndimage.zoom(mask, zoom=[scale, scale, 1], order=0)
     mask = np.pad(mask, padding, mode='constant', constant_values=0)
     return mask
@@ -274,3 +275,44 @@ def unmold_mask(mask, bbox, image_shape):
     full_mask = np.zeros(image_shape[:2], dtype=np.uint8)
     full_mask[y1:y2, x1:x2] = mask
     return full_mask
+
+######### image and mask
+
+def augment(img, masks):
+    """ augment image and maskss """
+
+    # use same seed for image and maskss to apply same transforms
+    seed = np.random.randint(1e6)
+
+    img = augment_image(img, seed)
+    if masks:
+        for i in range(masks.shape[2]):
+            masks[:, :, i] = augment_image(masks[:, :, i])
+        return img, masks
+    else:
+        return img
+
+
+def augment_image(img, vflip=.5, hflip=.5, angle=360, shear=.3, seed=np.random.seed()):
+    """ apply random transformations to an image
+    vflip/hflip: probabilities
+    angle/shear: maximums
+    seed: set to apply same transforms on multiple images
+    """
+    np.random.seed(seed)
+
+    vflip = np.random.random() > vflip
+    hflip = np.random.random() > hflip
+    angle = np.random.random() * angle
+    shear = np.random.random() * shear
+
+    if vflip:
+        img = np.flip(img, 0)
+    if hflip:
+        img = np.flip(img, 1)
+    img = rotate(img, angle)
+    img = warp(img, inverse_map=AffineTransform(shear=shear))
+    img = (img * 255).astype(np.uint8)
+    # log.info(f"hflip={hflip}, vflip={vflip}, angle={angle:.0f}, shear={shear:.2f}")
+
+    return img

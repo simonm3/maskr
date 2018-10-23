@@ -10,10 +10,6 @@ def rpn_class(rpn_match, rpn_class_logits):
                -1=negative, 0=neutral anchor.
     rpn_class_logits: [batch, anchors, 2]. RPN classifier logits for FG/BG.
     """
-    # Squeeze last dim to simplify
-    # todo ??? not needed
-    #rpn_match = rpn_match.squeeze()
-
     # Get anchor classes. Convert the -1/+1 match to 0/1 values.
     anchor_class = (rpn_match == 1).long()
 
@@ -39,10 +35,6 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
                -1=negative, 0=neutral anchor.
     rpn_bbox: [batch, anchors, (dy, dx, log(dh), log(dw))]
     """
-
-    # todo ??? not needed
-    # rpn_match = rpn_match.squeeze()
-
     # Positive anchors contribute to the loss, but negative and
     # neutral anchors (match value of 0 or -1) don't.
     indices = torch.nonzero(rpn_match == 1)
@@ -70,9 +62,7 @@ def mrcnn_class(target_class_ids, pred_class_logits):
         loss = F.cross_entropy(pred_class_logits, target_class_ids.long())
     else:
         with torch.no_grad():
-            loss = torch.FloatTensor([0])
-        if target_class_ids.is_cuda:
-            loss = loss.cuda()
+            loss = torch.tensor([0], dtype=torch.float32)
 
     return loss
 
@@ -100,9 +90,7 @@ def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
         loss = F.smooth_l1_loss(pred_bbox, target_bbox)
     else:
         with torch.no_grad():
-            loss = torch.FloatTensor([0])
-        if target_class_ids.is_cuda:
-            loss = loss.cuda()
+            loss = torch.tensor([0], dtype=torch.float)
 
     return loss
 
@@ -131,8 +119,6 @@ def mrcnn_mask(target_masks, target_class_ids, pred_masks):
         loss = F.binary_cross_entropy(y_pred, y_true)
     else:
         with torch.no_grad():
-            loss = torch.FloatTensor([0])
-        if target_class_ids.is_cuda:
-            loss = loss.cuda()
+            loss = torch.tensor([0], dtype=torch.float32)
 
     return loss

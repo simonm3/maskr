@@ -16,14 +16,9 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
                1 = positive anchor, -1 = negative anchor, 0 = neutral
     rpn_bbox: [N, (dy, dx, log(dh), log(dw))] Anchor bbox deltas.
     """
-    # todo move earlier
-    anchors = torch.Tensor(anchors)
-    gt_class_ids = torch.Tensor(gt_class_ids)
-    gt_boxes = torch.Tensor(gt_boxes)
-
     # todo move padding to end??
     # RPN Match: 1 = positive anchor, -1 = negative anchor, 0 = neutral
-    rpn_match = torch.zeros([anchors.shape[0]], dtype=torch.int32)
+    rpn_match = torch.zeros([anchors.shape[0]]).int()
     # RPN bounding boxes: [max anchors per image, (dy, dx, log(dh), log(dw))]
     rpn_bbox = torch.zeros((config.RPN_TRAIN_ANCHORS_PER_IMAGE, 4))
 
@@ -67,7 +62,6 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     save(rpn_match, "test1")
 
     # 2. Set an anchor for each GT box (regardless of IoU value).
-    # TODO: If multiple anchors have the same IoU match all of them
     gt_iou_argmax = torch.argmax(overlaps, dim=0)
     rpn_match[gt_iou_argmax] = 1
     save(rpn_match, "test2")
@@ -103,11 +97,10 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     # to match the corresponding GT boxes.
     ids = rpn_match.eq(1).nonzero().squeeze(-1)
 
-    data = box_utils.box_refinement(anchors[ids], gt_boxes[anchor_iou_argmax[ids]])
-
-    # todo is padding needed? included to enable match with original
+    # boxes
     rpn_bbox = torch.zeros((config.RPN_TRAIN_ANCHORS_PER_IMAGE, 4), dtype=torch.float)
-    rpn_bbox[:len(data)] = data
+    boxes = box_utils.box_refinement(anchors[ids], gt_boxes[anchor_iou_argmax[ids]])
+    rpn_bbox[:len(boxes)] = boxes
 
     # Normalize
     rpn_bbox /= torch.tensor(config.RPN_BBOX_STD_DEV, dtype=torch.float)

@@ -62,7 +62,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         crowd_iou_max = torch.max(crowd_overlaps, dim=1)[0]
         no_crowd_bool = crowd_iou_max < 0.001
     else:
-        no_crowd_bool = torch.ByteTensor(proposals.size()[0] * [True])
+        no_crowd_bool = torch.tensor(len(proposals) * [True], dtype=torch.uint8)
 
     # Compute overlaps matrix [proposals, gt_boxes]
     overlaps = box_utils.compute_overlaps(proposals, gt_boxes)
@@ -78,8 +78,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     if len(torch.nonzero(positive_roi_bool)):
         positive_indices = torch.nonzero(positive_roi_bool)[:, 0]
 
-        positive_count = int(config.TRAIN_ROIS_PER_IMAGE *
-                             config.ROI_POSITIVE_RATIO)
+        positive_count = int(config.TRAIN_ROIS_PER_IMAGE * config.ROI_POSITIVE_RATIO)
         rand_idx = torch.randperm(len(positive_indices), device="cpu")
         rand_idx = rand_idx[:positive_count]
         positive_indices = positive_indices[rand_idx]
@@ -162,10 +161,10 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         zeros = torch.zeros(negative_count, config.MASK_SHAPE[0], config.MASK_SHAPE[1])
         masks = zeros
     else:
-        rois = torch.FloatTensor()
-        roi_gt_class_ids = torch.IntTensor()
-        deltas = torch.FloatTensor()
-        masks = torch.FloatTensor()
+        rois = torch.empty()
+        roi_gt_class_ids = torch.empty()
+        deltas = torch.empty()
+        masks = torch.empty()
 
     save(rois, "rois")
     save(roi_gt_class_ids,"roi_gt_class_ids")

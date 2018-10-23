@@ -20,9 +20,6 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
     Returns:
         Proposals in normalized coordinates [batch, rois, (y1, x1, y2, x2)]
     """
-    # todo fudge to get working
-    anchors = torch.Tensor(anchors).to(config.DEVICE)
-
     with torch.no_grad():
         # Currently only supports batchsize 1
         inputs[0] = inputs[0].squeeze(0)
@@ -36,7 +33,7 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
 
         # Box deltas [batch, num_rois, 4]
         deltas = inputs[1]
-        std_dev = torch.tensor(config.RPN_BBOX_STD_DEV, dtype=torch.float32).reshape([1,4]).to(config.DEVICE)
+        std_dev = torch.tensor(config.RPN_BBOX_STD_DEV, dtype=torch.float32).reshape([1,4])
         deltas = deltas * std_dev
 
         # Improve performance by trimming to top anchors by score
@@ -67,7 +64,7 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
         boxes = boxes[keep, :]
 
         # Normalize dimensions to range of 0 to 1.
-        norm = torch.tensor([height, width, height, width], dtype=torch.float32).to(config.DEVICE)
+        norm = torch.tensor([height, width, height, width], dtype=torch.float32)
         normalized_boxes = boxes / norm
 
         # Add back batch dimension

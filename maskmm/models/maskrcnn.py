@@ -109,7 +109,7 @@ class MaskRCNN(nn.Module):
 
         if mode in ["training", "validation"]:
             # generate head targets and balanced sample of positive/negative rois
-            # run classifier and mask heads
+            # run classifier and mask headss
 
             with torch.no_grad():
                 # Generate detection targets
@@ -120,10 +120,10 @@ class MaskRCNN(nn.Module):
                     build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
 
             if len(rois) == 0:
-                mrcnn_class_logits = torch.FloatTensor().to(config.DEVICE)
-                mrcnn_class = torch.IntTensor().to(config.DEVICE)
-                mrcnn_bbox = torch.FloatTensor().to(config.DEVICE)
-                mrcnn_mask = torch.FloatTensor().to(config.DEVICE)
+                mrcnn_class_logits = torch.empty()
+                mrcnn_class = torch.empty().int()
+                mrcnn_bbox = torch.empty()
+                mrcnn_mask = torch.empty()
             else:
                 # Network Heads
                 mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(mrcnn_feature_maps, rois)
@@ -143,10 +143,9 @@ class MaskRCNN(nn.Module):
                 detections = filter_detections_batch(config, rpn_rois, mrcnn_class, mrcnn_bbox, image_metas)
 
                 # Convert boxes to normalized coordinates
-                # TODO: let DetectionLayer return normalized coordinates to avoid
-                #       unnecessary conversions
+                # TODO: let DetectionLayer return normalized coordinates to avoid unnecessary conversions
                 h, w = config.IMAGE_SHAPE[:2]
-                scale = torch.tensor([h, w, h, w], dtype=torch.float).to(config.DEVICE)
+                scale = torch.tensor([h, w, h, w], dtype=torch.float)
                 detection_boxes = detections[:, :4] / scale
 
                 # Add back batch dimension
@@ -285,9 +284,6 @@ class MaskRCNN(nn.Module):
         with torch.no_grad():
             # Mold inputs to format expected by the neural network
             molded_images, image_metas, windows = image_utils.mold_inputs(images, config)
-
-            # Convert images to torch tensor
-            molded_images = torch.from_numpy(molded_images.transpose(0, 3, 1, 2)).float().to(config.DEVICE)
 
             # Run object detection
             detections, mrcnn_mask = self([molded_images, image_metas], mode="detection")
