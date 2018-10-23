@@ -62,10 +62,10 @@ class FPN(nn.Module):
         p5_out = self.P5_conv1(x)
         save(p5_out, "post_conv")
 
-        ups = F.upsample(p5_out, scale_factor=2)
+        ups = F.interpolate(p5_out, scale_factor=2)
         p4_out = self.P4_conv1(c4_out) + ups
-        p3_out = self.P3_conv1(c3_out) + F.upsample(p4_out, scale_factor=2)
-        p2_out = self.P2_conv1(c2_out) + F.upsample(p3_out, scale_factor=2)
+        p3_out = self.P3_conv1(c3_out) + F.interpolate(p4_out, scale_factor=2)
+        p2_out = self.P2_conv1(c2_out) + F.interpolate(p3_out, scale_factor=2)
 
         p5_out = self.P5_conv2(p5_out)
         p4_out = self.P4_conv2(p4_out)

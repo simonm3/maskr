@@ -120,10 +120,10 @@ class MaskRCNN(nn.Module):
                     build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
 
             if len(rois) == 0:
-                mrcnn_class_logits = torch.empty()
-                mrcnn_class = torch.empty().int()
-                mrcnn_bbox = torch.empty()
-                mrcnn_mask = torch.empty()
+                mrcnn_class_logits = torch.empty(0)
+                mrcnn_class = torch.empty(0).int()
+                mrcnn_bbox = torch.empty(0)
+                mrcnn_mask = torch.empty(0)
             else:
                 # Network Heads
                 mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(mrcnn_feature_maps, rois)

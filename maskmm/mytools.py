@@ -27,6 +27,7 @@ def save(arr, filename):
     """ save array
     files saved from app0 have 0 appended to filename to allow same save code to be cut/pasted between apps..
     """
+    return
     c = getframeinfo(currentframe().f_back)
     if c.filename.find(f"/{APP0}/") >= 0:
         filename = filename + "0"

@@ -79,7 +79,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         positive_indices = torch.nonzero(positive_roi_bool)[:, 0]
 
         positive_count = int(config.TRAIN_ROIS_PER_IMAGE * config.ROI_POSITIVE_RATIO)
-        rand_idx = torch.randperm(len(positive_indices), device="cpu")
+        rand_idx = torch.randperm(len(positive_indices))
         rand_idx = rand_idx[:positive_count]
         positive_indices = positive_indices[rand_idx]
         positive_count = len(positive_indices)
@@ -132,7 +132,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         negative_indices = torch.nonzero(negative_roi_bool)[:, 0]
         r = 1.0 / config.ROI_POSITIVE_RATIO
         negative_count = int(r * positive_count - positive_count)
-        rand_idx = torch.randperm(len(negative_indices), device="cpu")
+        rand_idx = torch.randperm(len(negative_indices))
         rand_idx = rand_idx[:negative_count]
         negative_indices = negative_indices[rand_idx]
         negative_count = len(negative_indices)
@@ -144,7 +144,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     # are not used for negative ROIs with zeros.
     if positive_count > 0 and negative_count > 0:
         rois = torch.cat((positive_rois, negative_rois), dim=0)
-        zeros = torch.zeros(negative_count).int()
+        zeros = torch.zeros(negative_count).float()
         roi_gt_class_ids = torch.cat([roi_gt_class_ids, zeros], dim=0)
         zeros = torch.zeros(negative_count, 4)
         deltas = torch.cat([deltas, zeros], dim=0)
@@ -161,10 +161,10 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         zeros = torch.zeros(negative_count, config.MASK_SHAPE[0], config.MASK_SHAPE[1])
         masks = zeros
     else:
-        rois = torch.empty()
-        roi_gt_class_ids = torch.empty()
-        deltas = torch.empty()
-        masks = torch.empty()
+        rois = torch.empty(0)
+        roi_gt_class_ids = torch.empty(0)
+        deltas = torch.empty(0)
+        masks = torch.empty(0)
 
     save(rois, "rois")
     save(roi_gt_class_ids,"roi_gt_class_ids")

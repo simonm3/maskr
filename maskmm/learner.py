@@ -54,7 +54,7 @@ class Learner:
             layers = layer_regex[layers]
 
         # Data generators
-        train_generator = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False, num_workers=0)
+        train_generator = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=0)
         val_generator = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=0)
 
         # Train
@@ -84,7 +84,7 @@ class Learner:
                 classname = m.__class__.__name__
                 if classname.find('BatchNorm') != -1:
                     m.eval()
-            model.apply(set_bn_eval)
+            #model.apply(set_bn_eval)
 
             losses = self.run_epoch(train_generator, model.config.STEPS_PER_EPOCH,
                                     mode="training")
@@ -92,8 +92,8 @@ class Learner:
             self.loss_history.append(losses)
 
             # Validation
-            model.train()
-            model.apply(set_bn_eval)
+            model.eval()
+            #model.apply(set_bn_eval)
             with torch.no_grad():
                 losses = self.run_epoch(val_generator, model.config.VALIDATION_STEPS,
                                         mode="validation")
@@ -123,17 +123,12 @@ class Learner:
 
             # get data
             images, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks = inputs
-            image_metas = image_metas.numpy()
-
-            images = images.to(device)
-            gt_class_ids = gt_class_ids.to(device)
-            gt_boxes = gt_boxes.to(device)
-            gt_masks = gt_masks.to(device)
+            image_metas = image_metas.cpu().numpy()
 
             save(images, "images")
             save(gt_class_ids, "gt_class_ids")
             save(gt_boxes, "gt_boxes")
-            ### MASKMM0 HAS STRANGE LAST DIMENSION THAT IS NEVER USED?
+            ### UNSQUEEZE FOR COMPARISON WITH MASKMM0 HAS STRANGE LAST DIMENSION THAT IS NEVER USED?
             save(rpn_match.unsqueeze(-1), "rpn_match")
             save(rpn_bbox, "rpn_bbox")
 

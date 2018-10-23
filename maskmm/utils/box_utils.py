@@ -81,9 +81,7 @@ def compute_overlaps(boxes1, boxes2):
     x1 = torch.max(b1_x1, b2_x1)[:, 0]
     y2 = torch.min(b1_y2, b2_y2)[:, 0]
     x2 = torch.min(b1_x2, b2_x2)[:, 0]
-    zeros = torch.zeros(y1.size()[0])
-    if y1.is_cuda:
-        zeros = zeros.cuda()
+    zeros = torch.zeros_like(y1)
     intersection = torch.max(x2 - x1, zeros) * torch.max(y2 - y1, zeros)
 
     # 3. Compute unions
@@ -101,7 +99,6 @@ def box_refinement(box, gt_box):
     """Compute refinement needed to transform box to gt_box.
     box and gt_box are [N, (y1, x1, y2, x2)]
     """
-
     height = box[:, 2] - box[:, 0]
     width = box[:, 3] - box[:, 1]
     center_y = box[:, 0] + 0.5 * height

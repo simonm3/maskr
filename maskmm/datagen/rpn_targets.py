@@ -77,7 +77,7 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     if extra > 0:
         # Reset the extra ones to neutral
         if config.NPRANDOM:
-            ids = np.random.choice(ids, extra, replace=False)
+            ids = np.random.choice(ids.cpu(), extra, replace=False)
         else:
             ids = ids[torch.randperm(len(ids))][:extra]
         rpn_match[ids] = 0
@@ -88,7 +88,7 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     if extra > 0:
         # Rest the extra ones to neutral
         if config.NPRANDOM:
-            ids = np.random.choice(ids, extra.item(), replace=False)
+            ids = np.random.choice(ids.cpu(), extra.item(), replace=False)
         else:
             ids = ids[torch.randperm(len(ids))][:extra]
         rpn_match[ids] = 0

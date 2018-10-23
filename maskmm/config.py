@@ -184,6 +184,7 @@ class Config(object):
                                                 self.BACKBONE_SHAPES,
                                                 self.BACKBONE_STRIDES,
                                                 self.RPN_ANCHOR_STRIDE)
+        # anchors and boxes are float to allow log function and avoids type errors
         self.ANCHORS = torch.tensor(self.ANCHORS, dtype=torch.float)
 
     def display(self):

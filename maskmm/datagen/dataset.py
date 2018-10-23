@@ -173,7 +173,6 @@ class Dataset(Dataset):
 
         # image and masks
         image = image_utils.mold_image(image, self.config)
-        image_metas = torch.tensor(image_metas)
         gt_masks = gt_masks.permute(2, 0, 1).float()
 
         # rpn_targets
@@ -222,7 +221,9 @@ class Dataset(Dataset):
         # compress masks to reduce memory usage
         if use_mini_mask:
             mask = image_utils.minimize_mask(bbox, mask, self.config.MINI_MASK_SHAPE)
-        mask = torch.tensor(mask.astype(int), dtype=torch.int)
+        mask = torch.tensor(mask.astype(int), dtype=torch.int32)
+        # make float to enable log function
+        bbox = bbox.float()
 
         # Active classes are those active in this dataset.
         active_class_ids = np.zeros([self.num_classes])

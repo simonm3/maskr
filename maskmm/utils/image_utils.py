@@ -134,8 +134,8 @@ def unmold_detections(detections, mrcnn_mask, image_shape, window):
 def mold_image(image, config):
     """ Prepares RGB image with 0-255 values for input to model
     """
-    image = image - torch.tensor(config.MEAN_PIXEL, dtype=torch.float)
     image = torch.tensor(image, dtype=torch.float32)
+    image = image - torch.tensor(config.MEAN_PIXEL, dtype=torch.float)
     image = image.permute(2, 0, 1)
     return image
 
@@ -290,6 +290,8 @@ def augment(img, masks=None):
     else:
         for i in range(masks.shape[2]):
             masks[:, :, i] = augment_image(masks[:, :, i])
+        # remove empty masks
+        masks = masks[:, :, np.any(masks!=0, axis=(0,1))]
         return img, masks
 
 def augment_image(img, vflip=.5, hflip=.5, angle=360, shear=.3, seed=np.random.seed()):
