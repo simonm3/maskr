@@ -71,7 +71,7 @@ class MaskRCNN(nn.Module):
 
         self.apply(set_bn_fix)
 
-    def forward(self, input, mode):
+    def forward(self, *input):
         """ mode=training, validation, detection """
         images, image_metas, gt_class_ids, gt_boxes, gt_masks = input
         config = self.config
@@ -107,31 +107,31 @@ class MaskRCNN(nn.Module):
                              anchors=config.ANCHORS,
                              config=config)
 
-        if mode in ["training", "validation"]:
+        #if mode in ["training", "validation"]:
             # generate head targets and balanced sample of positive/negative rois
             # run classifier and mask headss
 
-            with torch.no_grad():
-                # Generate detection targets
-                # Subsamples proposals and generates target outputs for training
-                # Note that proposal class IDs, gt_boxes, and gt_masks are zero
-                # padded. Equally, returned rois and targets are zero padded.
-                rois, target_class_ids, target_deltas, target_mask = \
-                    build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
+        with torch.no_grad():
+            # Generate detection targets
+            # Subsamples proposals and generates target outputs for training
+            # Note that proposal class IDs, gt_boxes, and gt_masks are zero
+            # padded. Equally, returned rois and targets are zero padded.
+            rois, target_class_ids, target_deltas, target_mask = \
+                build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
 
-            if len(rois) == 0:
-                mrcnn_class_logits = torch.empty(0)
-                mrcnn_class = torch.empty(0).int()
-                mrcnn_bbox = torch.empty(0)
-                mrcnn_mask = torch.empty(0)
-            else:
-                # Network Heads
-                mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(mrcnn_feature_maps, rois)
-                mrcnn_mask = self.mask(mrcnn_feature_maps, rois)
+        if len(rois) == 0:
+            mrcnn_class_logits = torch.empty(0)
+            mrcnn_class = torch.empty(0).int()
+            mrcnn_bbox = torch.empty(0)
+            mrcnn_mask = torch.empty(0)
+        else:
+            # Network Heads
+            mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(mrcnn_feature_maps, rois)
+            mrcnn_mask = self.mask(mrcnn_feature_maps, rois)
 
-            return [rpn_class_logits, rpn_bbox, target_class_ids, mrcnn_class_logits, target_deltas, mrcnn_bbox,
-                    target_mask, mrcnn_mask]
-        elif mode=="detection":
+        return [rpn_class_logits, rpn_bbox, target_class_ids, mrcnn_class_logits, target_deltas, mrcnn_bbox,
+                target_mask, mrcnn_mask]
+        """elif mode=="detection":
             # run classifier head
             # filter detections
             # run mask head
@@ -161,7 +161,7 @@ class MaskRCNN(nn.Module):
             return [detections, mrcnn_mask]
         else:
             raise Exception("invalid mode. must be training/validation/detection")
-
+        """
     def initialize_weights(self):
         """Initialize model weights.
         """

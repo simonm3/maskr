@@ -178,7 +178,8 @@ class Dataset(Dataset):
         # rpn_targets
         rpn_match, rpn_bbox = build_rpn_targets(self.config.ANCHORS, gt_class_ids, gt_boxes, self.config)
 
-        return image, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks
+        return [image, image_metas, gt_class_ids, gt_boxes, gt_masks],\
+               [rpn_match, rpn_bbox]
 
     def __len__(self):
         return len(self.image_ids)
