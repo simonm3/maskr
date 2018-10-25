@@ -73,7 +73,14 @@ class MaskRCNN(nn.Module):
 
     def forward(self, *input):
         """ mode=training, validation, detection """
-        images, image_metas, gt_class_ids, gt_boxes, gt_masks = input
+
+        # tgt_rpn_match and tgt_rpn_bbox not used but passed through because.....
+        # loss is calculated in callback to store results but this has single param output of this function.
+        # loss_func is not able to store intermediate results
+        images, image_metas,\
+        tgt_rpn_match, tgt_rpn_bbox, \
+        gt_class_ids, gt_boxes, gt_masks = input
+
         config = self.config
 
         # Feature extraction
@@ -129,8 +136,12 @@ class MaskRCNN(nn.Module):
             mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(mrcnn_feature_maps, rois)
             mrcnn_mask = self.mask(mrcnn_feature_maps, rois)
 
-        return [rpn_class_logits, rpn_bbox, target_class_ids, mrcnn_class_logits, target_deltas, mrcnn_bbox,
-                target_mask, mrcnn_mask]
+        return tgt_rpn_match, tgt_rpn_bbox,\
+               rpn_class_logits, rpn_bbox, \
+               target_class_ids, target_deltas, target_mask,\
+               mrcnn_class_logits, mrcnn_bbox, mrcnn_mask
+
+
         """elif mode=="detection":
             # run classifier head
             # filter detections
