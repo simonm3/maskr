@@ -8,9 +8,13 @@ from os.path import join, expanduser
 import yaml
 import logging
 from logging.config import dictConfig
-dictConfig(yaml.load(open(join(expanduser("~"),"logging.yaml"))))
+home = expanduser("~")
+dictConfig(yaml.load(open(join(home, "logging.yaml"))))
 log = logging.getLogger(__name__)
-log.info("running ipstartup")
+if log.getEffectiveLevel() > logging.DEBUG:
+    import warnings
+    warnings.filterwarnings("ignore")
+log.info("")
 
 # configure ipython
 try:

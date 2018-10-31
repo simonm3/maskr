@@ -18,6 +18,8 @@ from .resnet import ResNet
 from .resnetFPN import FPN
 from .head import Classifier, Mask
 
+from maskmm.tracker import save
+
 import logging
 log = logging.getLogger()
 
@@ -64,6 +66,7 @@ class MaskRCNN(nn.Module):
         self.mask = Mask(256, config.MASK_POOL_SIZE, config.IMAGE_SHAPE, config.NUM_CLASSES)
 
         # Fix batch norm layers
+        # todo is this needed as learner already sets eval mode?
         def set_bn_fix(m):
             classname = m.__class__.__name__
             if classname.find('BatchNorm') != -1:
@@ -71,7 +74,7 @@ class MaskRCNN(nn.Module):
 
         self.apply(set_bn_fix)
 
-    def forward(self, *input):
+    def forward(self, *inputs):
         """ mode=training, validation, detection """
 
         # tgt_rpn_match and tgt_rpn_bbox not used but passed through because.....
@@ -79,11 +82,12 @@ class MaskRCNN(nn.Module):
         # loss_func is not able to store intermediate results
         images, image_metas,\
         tgt_rpn_match, tgt_rpn_bbox, \
-        gt_class_ids, gt_boxes, gt_masks = input
+        gt_class_ids, gt_boxes, gt_masks = inputs
 
         config = self.config
 
         # Feature extraction
+        save(images, "pre_fpn")
         [p2_out, p3_out, p4_out, p5_out, p6_out] = self.fpn(images)
 
         # Note that P6 is used in RPN, but not in the classifier heads.
@@ -136,10 +140,10 @@ class MaskRCNN(nn.Module):
             mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(mrcnn_feature_maps, rois)
             mrcnn_mask = self.mask(mrcnn_feature_maps, rois)
 
-        return tgt_rpn_match, tgt_rpn_bbox,\
-               rpn_class_logits, rpn_bbox, \
-               target_class_ids, target_deltas, target_mask,\
-               mrcnn_class_logits, mrcnn_bbox, mrcnn_mask
+        return dict(out=[tgt_rpn_match, tgt_rpn_bbox,\
+                        rpn_class_logits, rpn_bbox,\
+                        target_class_ids, target_deltas, target_mask,\
+                        mrcnn_class_logits, mrcnn_bbox, mrcnn_mask])
 
 
         """elif mode=="detection":

@@ -1,7 +1,0 @@
-maskmm0
-    clone
-    add make.sh
-    downgrade to pytorch 0.4.0
-    make.sh
-    ln -s <link to maskrcnn trained model>
-    python demo.py

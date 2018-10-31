@@ -26,7 +26,7 @@ def compose_image_meta(image_id, image_shape, window, active_class_ids):
         list(window) +          # size=4 (y1, x1, y2, x2) in image cooredinates
         list(active_class_ids)  # size=num_classes
     )
-    return torch.tensor(meta, dtype=torch.float)
+    return torch.tensor(meta).float()
 
 def parse_image_meta(meta):
     """Parses an image info Numpy array to its components.
@@ -57,7 +57,7 @@ def mold_inputs(images, config):
         # Resize image to fit the model expected size
         molded_image, window, scale, padding = resize_image(image, config)
         molded_image = mold_image(molded_image, config)
-        image_meta = compose_image_meta(0, image.shape, window, np.zeros([config.NUM_CLASSES], dtype=np.int32))
+        image_meta = compose_image_meta(0, image.shape, window, np.zeros([config.NUM_CLASSES]).int())
 
         # Append
         molded_images.append(molded_image)
@@ -134,9 +134,13 @@ def unmold_detections(detections, mrcnn_mask, image_shape, window):
 def mold_image(image, config):
     """ Prepares RGB image with 0-255 values for input to model
     """
-    image = torch.tensor(image, dtype=torch.float32)
-    image = image - torch.tensor(config.MEAN_PIXEL, dtype=torch.float)
-    image = image.permute(2, 0, 1)
+    if config.COMPAT:
+        image = torch.tensor(image, dtype=torch.double)
+        image = image - torch.tensor(config.MEAN_PIXEL, dtype=torch.double)
+    else:
+        image = image - config.MEAN_PIXEL
+        image = torch.tensor(image)
+    image = image.permute(2, 0, 1).float()
     return image
 
 def unmold_image(image, config):

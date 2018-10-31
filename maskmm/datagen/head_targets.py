@@ -2,7 +2,7 @@ import torch
 from maskmm.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
 from maskmm.utils import box_utils
 import numpy as np
-from maskmm.mytools import *
+from maskmm.tracker import save, saveall
 
 import logging
 log = logging.getLogger()
@@ -42,7 +42,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
 
     # Normalize coordinates
     h, w = config.IMAGE_SHAPE[:2]
-    scale = torch.tensor([h, w, h, w], dtype=torch.float32)
+    scale = torch.tensor([h, w, h, w]).float()
     gt_boxes = gt_boxes / scale
 
     # Handle COCO crowds
@@ -93,7 +93,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
 
         # Compute bbox refinement for positive ROI
         deltas = box_utils.box_refinement(positive_rois.data, roi_gt_boxes.data)
-        std_dev = torch.tensor(config.BBOX_STD_DEV, dtype=torch.float32)
+        std_dev = torch.tensor(config.BBOX_STD_DEV).float()
         deltas /= std_dev
 
         # Assign positive ROIs to GT masks

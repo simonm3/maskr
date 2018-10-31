@@ -1,0 +1,45 @@
+AS FEW CHANGES AS POSSIBLE TO MASKMM0
+=====================================
+
+##### update to pytorch 1
+replace data.cpu()[0], item()
+replace if x.size(), if x.size()[0]
+
+#### add links
+link to maskmm.datasets.nuke for dataset and config (notebooks)
+add nuke_train0.ipynb
+ln -s <link to maskrcnn trained model>
+nms and roialign from maskmm (saves recompiling)
+
+#### fix bugs
+makedirs log directory
+
+#### logging/debugging
+rename log as log1
+add logging
+add tracker saves
+
+#### make predictable
+set dataloader.num_workers=0, augment=False, shuffle=False
+
+MASKMM
+======
+
+#### restructure
+structure into multiple files
+seperate applications nuke, coco etc..
+remove duplication e.g. dataset, bbox_overlaps
+
+#### update
+replace numpy with torch where possible
+update to pytorch1 removing Variable, .data etc..
+add fastai learner
+
+#### align output with original
+config.COMPAT for random numbers, dtypes
+set dataloader.num_workers=0, augment=False, shuffle=False
+GPU STILL HAS DIFFERENCES IN CONV
+
+#### logging/debugging
+tracker
+

@@ -55,7 +55,7 @@ def filter_detections(rois, probs, deltas, window, config):
     std_dev = torch.tensor(config.RPN_BBOX_STD_DEV, dtype=torch.float).reshape([1, 4])
     refined_rois = box_utils.apply_box_deltas(rois, deltas_specific * std_dev)
 
-    # Convert coordiates to image domain
+    # Convert coordinates to image domain
     height, width = config.IMAGE_SHAPE[:2]
     scale = torch.tensor([height, width, height, width], dtype=torch.float)
     refined_rois *= scale

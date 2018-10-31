@@ -12,6 +12,8 @@ import numpy as np
 import os
 import torch
 from maskmm.datagen.anchors import generate_pyramid_anchors
+import logging
+log = logging.getLogger()
 
 
 # Base Configuration Class
@@ -151,7 +153,7 @@ class Config(object):
     USE_RPN_ROIS = True
 
     # set to True to use numpy random numbers to compare against numpy version
-    NPRANDOM = False
+    COMPAT = False
 
     def __init__(self):
         """Set values of computed attributes."""
@@ -185,7 +187,7 @@ class Config(object):
                                                 self.BACKBONE_STRIDES,
                                                 self.RPN_ANCHOR_STRIDE)
         # anchors and boxes are float to allow log function and avoids type errors
-        self.ANCHORS = torch.tensor(self.ANCHORS, dtype=torch.float)
+        self.ANCHORS = torch.tensor(self.ANCHORS).float()
 
     def display(self):
         """Display Configuration values."""

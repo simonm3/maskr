@@ -3,7 +3,7 @@ import numpy as np
 from maskmm.utils import box_utils
 from maskmm.lib.nms.nms_wrapper import nms
 
-from maskmm.mytools import *
+from maskmm.tracker import save, saveall
 import logging
 log = logging.getLogger()
 
@@ -33,7 +33,7 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
 
         # Box deltas [batch, num_rois, 4]
         deltas = inputs[1]
-        std_dev = torch.tensor(config.RPN_BBOX_STD_DEV, dtype=torch.float32).reshape([1,4])
+        std_dev = torch.tensor(config.RPN_BBOX_STD_DEV).float().reshape([1,4])
         deltas = deltas * std_dev
 
         # Improve performance by trimming to top anchors by score
@@ -64,7 +64,7 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
         boxes = boxes[keep, :]
 
         # Normalize dimensions to range of 0 to 1.
-        norm = torch.tensor([height, width, height, width], dtype=torch.float32)
+        norm = torch.tensor([height, width, height, width]).float()
         normalized_boxes = boxes / norm
 
         # Add back batch dimension

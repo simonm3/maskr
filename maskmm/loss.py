@@ -62,7 +62,7 @@ def mrcnn_class(target_class_ids, pred_class_logits):
         loss = F.cross_entropy(pred_class_logits, target_class_ids.long())
     else:
         with torch.no_grad():
-            loss = torch.tensor([0], dtype=torch.float32)
+            loss = torch.tensor([0]).float()
 
     return loss
 
@@ -90,7 +90,7 @@ def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
         loss = F.smooth_l1_loss(pred_bbox, target_bbox)
     else:
         with torch.no_grad():
-            loss = torch.tensor([0], dtype=torch.float)
+            loss = torch.tensor([0]).float()
 
     return loss
 
@@ -119,6 +119,6 @@ def mrcnn_mask(target_masks, target_class_ids, pred_masks):
         loss = F.binary_cross_entropy(y_pred, y_true)
     else:
         with torch.no_grad():
-            loss = torch.tensor([0], dtype=torch.float32)
+            loss = torch.tensor([0]).float()
 
     return loss

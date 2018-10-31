@@ -1,8 +1,11 @@
 from maskmm.utils import box_utils
 import torch
 import numpy as np
-from maskmm.mytools import *
+import logging
+log = logging.getLogger()
+from maskmm.tracker import save, saveall
 
+@saveall
 def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     """Given the anchors and GT boxes, compute overlaps and identify positive
     anchors and deltas to refine them to match their corresponding GT boxes.
@@ -56,13 +59,17 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     #
     # 1. Set negative anchors first. They get overwritten below if a GT box is
     # matched to them. Skip boxes in crowd areas.
-
     anchor_iou_max, anchor_iou_argmax = torch.max(overlaps, dim=1)
+    if config.COMPAT:
+        anchor_iou_argmax = np.argmax(overlaps.cpu(), axis=1)
+
     rpn_match[(anchor_iou_max < 0.3) & (no_crowd_bool)] = -1
     save(rpn_match, "test1")
 
     # 2. Set an anchor for each GT box (regardless of IoU value).
     gt_iou_argmax = torch.argmax(overlaps, dim=0)
+    if config.COMPAT:
+        gt_iou_argmax = np.argmax(overlaps.cpu(), axis=0)
     rpn_match[gt_iou_argmax] = 1
     save(rpn_match, "test2")
 
@@ -76,7 +83,7 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     extra = len(ids) - (config.RPN_TRAIN_ANCHORS_PER_IMAGE // 2)
     if extra > 0:
         # Reset the extra ones to neutral
-        if config.NPRANDOM:
+        if config.COMPAT:
             ids = np.random.choice(ids.cpu(), extra, replace=False)
         else:
             ids = ids[torch.randperm(len(ids))][:extra]
@@ -87,7 +94,7 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     extra = len(ids) - (config.RPN_TRAIN_ANCHORS_PER_IMAGE - rpn_match.eq(1).sum())
     if extra > 0:
         # Rest the extra ones to neutral
-        if config.NPRANDOM:
+        if config.COMPAT:
             ids = np.random.choice(ids.cpu(), extra.item(), replace=False)
         else:
             ids = ids[torch.randperm(len(ids))][:extra]
@@ -98,11 +105,12 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     ids = rpn_match.eq(1).nonzero().squeeze(-1)
 
     # boxes
-    rpn_bbox = torch.zeros((config.RPN_TRAIN_ANCHORS_PER_IMAGE, 4), dtype=torch.float)
+    rpn_bbox = torch.zeros((config.RPN_TRAIN_ANCHORS_PER_IMAGE, 4)).float()
     boxes = box_utils.box_refinement(anchors[ids], gt_boxes[anchor_iou_argmax[ids]])
     rpn_bbox[:len(boxes)] = boxes
 
     # Normalize
-    rpn_bbox /= torch.tensor(config.RPN_BBOX_STD_DEV, dtype=torch.float)
+    rpn_bbox /= torch.tensor(config.RPN_BBOX_STD_DEV).float()
+
 
     return rpn_match, rpn_bbox

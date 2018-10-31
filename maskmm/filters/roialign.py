@@ -40,7 +40,7 @@ def roialign(inputs, pool_size, image_shape):
     # the fact that our coordinates are normalized here.
     # e.g. a 224x224 ROI (in pixels) maps to P4
     with torch.no_grad():
-        image_area = torch.FloatTensor([float(image_shape[0]*image_shape[1])])
+        image_area = torch.tensor([float(image_shape[0]*image_shape[1])]).float()
     if boxes.is_cuda:
         image_area = image_area.cuda()
     roi_level = 4 + torch.log2(torch.sqrt(h*w)/(224.0/torch.sqrt(image_area)))

@@ -5,8 +5,8 @@ import torch
 from torch.utils.data import Dataset
 from maskmm.utils import box_utils, image_utils
 from maskmm.datagen.rpn_targets import build_rpn_targets
-import random
-from maskmm.mytools import *
+
+from maskmm.tracker import save, saveall
 
 import logging
 log = logging.getLogger()
@@ -26,7 +26,7 @@ class Dataset(Dataset):
     See COCODataset and ShapesDataset as examples.
     """
 
-    def __init__(self, config, class_map=None, augment=True):
+    def __init__(self, config, class_map=None):
         self.config = config
         self._image_ids = []
         self.image_info = []
@@ -34,7 +34,7 @@ class Dataset(Dataset):
         self.class_info = [{"source": "", "id": 0, "name": "BG"}]
         self.source_class_ids = {}
 
-        self.augment = augment
+        self.augment = config.AUGMENT
 
     def add_class(self, source, class_id, class_name):
         assert "." not in source, "Source name cannot contain a dot"
@@ -204,7 +204,7 @@ class Dataset(Dataset):
         # Load image and mask
         image = self.load_image(image_id)
         mask, class_ids = self.load_mask(image_id)
-        class_ids = torch.tensor(class_ids, dtype=torch.float)
+        class_ids = torch.tensor(class_ids).float()
         shape = image.shape
 
         # resize image and mask

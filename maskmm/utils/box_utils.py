@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-from maskmm.mytools import *
 
 def apply_box_deltas(boxes, deltas):
     """Applies the given deltas to the given boxes.
