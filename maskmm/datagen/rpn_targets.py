@@ -19,7 +19,6 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
                1 = positive anchor, -1 = negative anchor, 0 = neutral
     rpn_bbox: [N, (dy, dx, log(dh), log(dw))] Anchor bbox deltas.
     """
-    # todo move padding to end??
     # RPN Match: 1 = positive anchor, -1 = negative anchor, 0 = neutral
     rpn_match = torch.zeros([anchors.shape[0]]).int()
     # RPN bounding boxes: [max anchors per image, (dy, dx, log(dh), log(dw))]
@@ -105,12 +104,10 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     ids = rpn_match.eq(1).nonzero().squeeze(-1)
 
     # boxes
-    rpn_bbox = torch.zeros((config.RPN_TRAIN_ANCHORS_PER_IMAGE, 4)).float()
     boxes = box_utils.box_refinement(anchors[ids], gt_boxes[anchor_iou_argmax[ids]])
     rpn_bbox[:len(boxes)] = boxes
 
     # Normalize
-    rpn_bbox /= torch.tensor(config.RPN_BBOX_STD_DEV).float()
-
+    rpn_bbox /= torch.tensor(config.RPN_BBOX_STD_DEV, dtype=torch.float)
 
     return rpn_match, rpn_bbox

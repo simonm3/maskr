@@ -3,12 +3,13 @@ from maskmm.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
 from maskmm.utils import box_utils
 import numpy as np
 from maskmm.tracker import save, saveall
+from utils.utils import batch_slice
 
 import logging
 log = logging.getLogger()
 
-
-def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
+@batch_slice
+def build_head_targets(inputs, config):
     """ Subsamples proposals and generates target box refinment, class_ids,
     and masks for each.
 
@@ -32,11 +33,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
                  Masks cropped to bbox boundaries and resized to neural
                  network output size.
     """
-    # Currently only supports batchsize 1
-    proposals = proposals.squeeze(0)
-    gt_class_ids = gt_class_ids.squeeze(0)
-    gt_boxes = gt_boxes.squeeze(0)
-    gt_masks = gt_masks.squeeze(0)
+    proposals, gt_class_ids, gt_boxes, gt_masks = inputs
 
     save(proposals, "proposals")
 

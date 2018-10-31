@@ -204,7 +204,7 @@ class Dataset(Dataset):
         # Load image and mask
         image = self.load_image(image_id)
         mask, class_ids = self.load_mask(image_id)
-        class_ids = torch.tensor(class_ids).float()
+        class_ids = torch.tensor(class_ids, dytpe=torch.float())
         shape = image.shape
 
         # resize image and mask
@@ -221,7 +221,7 @@ class Dataset(Dataset):
         # compress masks to reduce memory usage
         if use_mini_mask:
             mask = image_utils.minimize_mask(bbox, mask, self.config.MINI_MASK_SHAPE)
-        mask = torch.tensor(mask.astype(int), dtype=torch.int32)
+        mask = torch.tensor(mask.astype(int))
         # make float to enable log function
         bbox = bbox.float()
 

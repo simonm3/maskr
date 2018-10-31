@@ -11,7 +11,7 @@ from maskmm.utils import image_utils
 
 from maskmm.datagen.head_targets import build_head_targets
 from maskmm.filters.proposals import proposals
-from maskmm.filters.detections import filter_detections_batch
+from maskmm.filters.detections import filter_detections
 
 from .rpn import RPN
 from .resnet import ResNet
@@ -53,7 +53,6 @@ class MaskRCNN(nn.Module):
         C1, C2, C3, C4, C5 = resnet.stages()
 
         # Top-down Layers
-        # TODO: add assert to varify feature map sizes match what's in config
         self.fpn = FPN(C1, C2, C3, C4, C5, out_channels=256)
 
         # RPN
@@ -64,15 +63,6 @@ class MaskRCNN(nn.Module):
 
         # FPN Mask
         self.mask = Mask(256, config.MASK_POOL_SIZE, config.IMAGE_SHAPE, config.NUM_CLASSES)
-
-        # Fix batch norm layers
-        # todo is this needed as learner already sets eval mode?
-        def set_bn_fix(m):
-            classname = m.__class__.__name__
-            if classname.find('BatchNorm') != -1:
-                for p in m.parameters(): p.requires_grad = False
-
-        self.apply(set_bn_fix)
 
     def forward(self, *inputs):
         """ mode=training, validation, detection """
@@ -118,17 +108,11 @@ class MaskRCNN(nn.Module):
                              anchors=config.ANCHORS,
                              config=config)
 
-        #if mode in ["training", "validation"]:
-            # generate head targets and balanced sample of positive/negative rois
-            # run classifier and mask headss
-
         with torch.no_grad():
-            # Generate detection targets
-            # Subsamples proposals and generates target outputs for training
-            # Note that proposal class IDs, gt_boxes, and gt_masks are zero
-            # padded. Equally, returned rois and targets are zero padded.
+            # Subsample proposals and generate target outputs for training
+            # Note inputs and outputs are zero padded.
             rois, target_class_ids, target_deltas, target_mask = \
-                build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
+                build_head_targets([rpn_rois, gt_class_ids, gt_boxes, gt_masks], config)
 
         if len(rois) == 0:
             mrcnn_class_logits = torch.empty(0)
@@ -145,7 +129,7 @@ class MaskRCNN(nn.Module):
                         target_class_ids, target_deltas, target_mask,\
                         mrcnn_class_logits, mrcnn_bbox, mrcnn_mask])
 
-
+        # todo detections
         """elif mode=="detection":
             # run classifier head
             # filter detections

@@ -113,21 +113,3 @@ def filter_detections(rois, probs, deltas, window, config):
                         class_scores[keep].unsqueeze(1)), dim=1)
 
     return result
-
-
-def filter_detections_batch(config, rois, mrcnn_class, mrcnn_bbox, image_meta):
-    """Takes classified proposal boxes and their bounding box deltas and
-    returns the final detection boxes.
-
-    Returns:
-    [batch, num_detections, (y1, x1, y2, x2, class_score)] in pixels
-    """
-
-    # Currently only supports batchsize 1
-    rois = rois.squeeze(0)
-
-    _, _, window, _ = image_utils.parse_image_meta(image_meta)
-    window = window[0]
-    detections = filter_detections(rois, mrcnn_class, mrcnn_bbox, window, config)
-
-    return detections
