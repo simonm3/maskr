@@ -62,4 +62,4 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
     rpn_rois = boxes / norm
 
     save(rpn_rois, "normalized_boxes")
-    return rpn_rois
+    return [rpn_rois]

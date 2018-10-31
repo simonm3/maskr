@@ -58,12 +58,14 @@ def mrcnn_class(target_class_ids, pred_class_logits):
         padding to fill in the array.
     pred_class_logits: [batch, num_rois, num_classes]
     """
+    target_class_ids = target_class_ids.squeeze(0)
+    pred_class_logits= pred_class_logits.squeeze(0)
+
     if len(target_class_ids):
         loss = F.cross_entropy(pred_class_logits, target_class_ids.long())
     else:
         with torch.no_grad():
             loss = torch.tensor([0]).float()
-
     return loss
 
 
@@ -74,6 +76,9 @@ def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
     target_class_ids: [batch, num_rois]. Integer class IDs.
     pred_bbox: [batch, num_rois, num_classes, (dy, dx, log(dh), log(dw))]
     """
+    target_bbox = target_bbox.squeeze(0)
+    target_class_ids = target_class_ids.squeeze(0)
+    pred_bbox = pred_bbox.squeeze(0)
 
     if len(target_class_ids):
         # Only positive ROIs contribute to the loss. And only
@@ -104,6 +109,10 @@ def mrcnn_mask(target_masks, target_class_ids, pred_masks):
     pred_masks: [batch, proposals, height, width, num_classes] float32 tensor
                 with values from 0 to 1.
     """
+    target_masks = target_masks.squeeze(0)
+    target_class_ids = target_class_ids.squeeze(0)
+    pred_masks = pred_masks.squeeze(0)
+
     if len(target_class_ids):
         # Only positive ROIs contribute to the loss. And only
         # the class specific mask of each ROI.

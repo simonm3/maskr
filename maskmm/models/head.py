@@ -1,6 +1,8 @@
 import torch.nn as nn
 from maskmm.filters.roialign import roialign
 from .samepad2d import SamePad2d
+import logging
+log = logging.getLogger()
 
 class Classifier(nn.Module):
     def __init__(self, depth, pool_size, image_shape, num_classes):
@@ -22,6 +24,10 @@ class Classifier(nn.Module):
 
     def forward(self, x, rois):
         x = roialign([rois] + x, self.pool_size, self.image_shape)
+
+        # todo batchsize>1
+        x = x.squeeze(0)
+
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -36,7 +42,8 @@ class Classifier(nn.Module):
         mrcnn_bbox = self.linear_bbox(x)
         mrcnn_bbox = mrcnn_bbox.view(mrcnn_bbox.size()[0], -1, 4)
 
-        return [mrcnn_class_logits, mrcnn_probs, mrcnn_bbox]
+        # todo batchsize>1
+        return [mrcnn_class_logits.unsqueeze(0), mrcnn_probs.unsqueeze(0), mrcnn_bbox.unsqueeze(0)]
 
 class Mask(nn.Module):
     def __init__(self, depth, pool_size, image_shape, num_classes):
@@ -61,6 +68,10 @@ class Mask(nn.Module):
 
     def forward(self, x, rois):
         x = roialign([rois] + x, self.pool_size, self.image_shape)
+
+        # todo batchsize>1
+        x = x.squeeze(0)
+
         x = self.conv1(self.padding(x))
         x = self.bn1(x)
         x = self.relu(x)
@@ -78,5 +89,6 @@ class Mask(nn.Module):
         x = self.conv5(x)
         x = self.sigmoid(x)
 
-        return x
+        # todo batchsize>1
+        return x.unsqueeze(0)
 

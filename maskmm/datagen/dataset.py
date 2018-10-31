@@ -204,7 +204,7 @@ class Dataset(Dataset):
         # Load image and mask
         image = self.load_image(image_id)
         mask, class_ids = self.load_mask(image_id)
-        class_ids = torch.tensor(class_ids, dytpe=torch.float())
+        class_ids = torch.tensor(class_ids, dtype=torch.float)
         shape = image.shape
 
         # resize image and mask

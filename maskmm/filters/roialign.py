@@ -1,6 +1,10 @@
 import torch
 from maskmm.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
+from maskmm.utils.utils import batch_slice
+import logging
+log = logging.getLogger()
 
+@batch_slice
 def roialign(inputs, pool_size, image_shape):
     """Implements ROI Pooling on multiple levels of the feature pyramid.
 
@@ -19,11 +23,6 @@ def roialign(inputs, pool_size, image_shape):
     The width and height are those specific in the pool_shape in the layer
     constructor.
     """
-
-    # Currently only supports batchsize 1
-    for i in range(len(inputs)):
-        inputs[i] = inputs[i].squeeze(0)
-
     # Crop boxes [batch, num_boxes, (y1, x1, y2, x2)] in normalized coords
     boxes = inputs[0]
 
@@ -92,4 +91,4 @@ def roialign(inputs, pool_size, image_shape):
     _, box_to_level = torch.sort(box_to_level)
     pooled = pooled[box_to_level, :, :]
 
-    return pooled
+    return [pooled]

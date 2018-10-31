@@ -3,7 +3,7 @@ from maskmm.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
 from maskmm.utils import box_utils
 import numpy as np
 from maskmm.tracker import save, saveall
-from utils.utils import batch_slice
+from maskmm.utils.utils import batch_slice
 
 import logging
 log = logging.getLogger()
