@@ -149,6 +149,7 @@ class Learner:
             if mode=="training":
                 # Backpropagation
                 totloss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
                 for name, param in model.named_parameters():
                     if param.requires_grad:
                         save(param, "post_back"+name)
