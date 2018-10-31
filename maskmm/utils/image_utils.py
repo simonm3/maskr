@@ -283,22 +283,20 @@ def unmold_mask(mask, bbox, image_shape):
 ######### image and mask
 
 def augment(img, masks=None):
-    """ augment image and maskss """
+    """ augment image and masks """
 
-    # use same seed for image and maskss to apply same transforms
+    # use same seed for image and masks for identical transforms
     seed = np.random.randint(1e6)
 
     img = augment_image(img, seed)
-    if masks is None:
-        return img
-    else:
+    if masks is not None:
         for i in range(masks.shape[2]):
-            masks[:, :, i] = augment_image(masks[:, :, i])
+            masks[:, :, i] = augment_image(masks[:, :, i], seed)
         # remove empty masks
         masks = masks[:, :, np.any(masks!=0, axis=(0,1))]
-        return img, masks
+    return img, masks
 
-def augment_image(img, vflip=.5, hflip=.5, angle=360, shear=.3, seed=np.random.seed()):
+def augment_image(img, vflip=.5, hflip=.5, angle=360, shear=.3, seed=np.random.randint(1e6)):
     """ apply random transformations to an image
     vflip/hflip: probabilities
     angle/shear: maximums
