@@ -54,7 +54,8 @@ class Learner:
             layers = layer_regex[layers]
 
         # Data generators
-        train_generator = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False, num_workers=0)
+        train_generator = torch.utils.data.DataLoader(train_dataset, batch_size=self.model.config.IMAGES_PER_GPU,
+                                                      shuffle=False, num_workers=0)
         val_generator = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=0)
 
         # Train

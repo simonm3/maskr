@@ -14,27 +14,6 @@ import logging
 
 log = logging.getLogger()
 
-"""
-run0 = baseline on last working version
-
-pipeline test
-    run new version of code, compare and stop when diverges
-
-stage test
-    run stage using run0 inputs and comparing outputs
-
-compare
-    mse values. type conversion. 1e9 format. stop if tolerance exceeded.
-    type comparison
-    shape comparison
-
-testrun
-    baseline, code version, data versions (image1, image2 etc..)
-    run and compare each data
-
-deep learning steps
-    forward pass on multiple data => losses
-"""
 def mse(a, b):
     """ return mean squared error of two tensors or arrays """
     return ((a - b) ** 2).sum()
@@ -87,7 +66,8 @@ class Tracker:
             exclude_funcs: turn off save for named functions
             basename: name of base to benchmark against. None when creating a base.
             tolerance: mse<tolerance is considered zero
-            type_warning=if true then logs message if types different
+            log_save=logs every file saved
+            log_type=logs type differences even of content same.
         """
         trackpath = join(os.path.expanduser("~"), "tracking")
 
@@ -189,9 +169,16 @@ class Tracker:
             # save outputs
             if self.log_save:
                 log.info("*** outputs")
+            # convert single returns to list
+            if not isinstance(out, (list, tuple)):
+                out = [out]
             for i, ret in enumerate(out):
                 self.save(ret, f"{func_name}.r{i}")
-
+            if self.log_save:
+                log.info(f"*** {func_name} ends *************************************")
+            # revert from list to single return
+            if len(out)==1:
+                out = out[0]
             return out
 
         return wrapper

@@ -4,6 +4,7 @@
 
 import torch.nn as nn
 from .samepad2d import SamePad2d
+from maskmm.tracker import save
 import logging
 log = logging.getLogger()
 
@@ -38,17 +39,21 @@ class RPN(nn.Module):
         # Shared convolutional base of the RPN
         x = self.relu(self.conv_shared(self.padding(x)))
 
+        save(x, "rpn_test0")
+
         # Anchor Score. [batch, anchors per location * 2, height, width].
         rpn_class_logits = self.conv_class(x)
+
+        save(rpn_class_logits, "rpntest1")
 
         # Reshape to [batch, 2, anchors]
         rpn_class_logits = rpn_class_logits.permute(0,2,3,1)
         rpn_class_logits = rpn_class_logits.contiguous()
         rpn_class_logits = rpn_class_logits.view(x.size()[0], -1, 2)
+        save(rpn_class_logits, "rpntest2")
 
         # Softmax on last dimension of BG/FG.
         rpn_probs = self.softmax(rpn_class_logits)
-
         # Bounding box refinement. [batch, H, W, anchors per location, depth]
         # where depth is [x, y, log(w), log(h)]
         rpn_bbox = self.conv_bbox(x)
@@ -58,4 +63,4 @@ class RPN(nn.Module):
         rpn_bbox = rpn_bbox.contiguous()
         rpn_bbox = rpn_bbox.view(x.size()[0], -1, 4)
 
-        return [rpn_class_logits, rpn_probs, rpn_bbox]
+        return rpn_class_logits, rpn_probs, rpn_bbox

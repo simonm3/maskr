@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from maskmm.utils import box_utils
 from maskmm.lib.nms.nms_wrapper import nms
-from maskmm.utils.utils import batch_slice
+from maskmm.utils.utils import batch_slice, pad
 
 from maskmm.tracker import save, saveall
 import logging
@@ -60,6 +60,8 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
     # Normalize dimensions to range of 0 to 1.
     norm = torch.tensor([height, width, height, width]).float()
     rpn_rois = boxes / norm
+
+    rpn_rois = pad(rpn_rois, proposal_count)
 
     save(rpn_rois, "normalized_boxes")
     return [rpn_rois]

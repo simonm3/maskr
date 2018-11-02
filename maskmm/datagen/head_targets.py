@@ -1,6 +1,6 @@
 import torch
 from maskmm.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
-from maskmm.utils import box_utils
+from maskmm.utils import box_utils, utils
 import numpy as np
 from maskmm.tracker import save, saveall
 from maskmm.utils.utils import batch_slice
@@ -34,8 +34,6 @@ def build_head_targets(inputs, config):
                  network output size.
     """
     proposals, gt_class_ids, gt_boxes, gt_masks = inputs
-
-    save(proposals, "proposals")
 
     # Normalize coordinates
     h, w = config.IMAGE_SHAPE[:2]
@@ -163,9 +161,9 @@ def build_head_targets(inputs, config):
         deltas = torch.empty(0)
         masks = torch.empty(0)
 
-    save(rois, "rois")
-    save(roi_gt_class_ids,"roi_gt_class_ids")
-    save(deltas, "deltas")
-    save(masks, "masks")
+    rois = utils.pad(rois, config.TRAIN_ROIS_PER_IMAGE)
+    roi_gt_class_ids = utils.pad(roi_gt_class_ids, config.TRAIN_ROIS_PER_IMAGE)
+    deltas = utils.pad(deltas, config.TRAIN_ROIS_PER_IMAGE)
+    masks = utils.pad(masks, config.TRAIN_ROIS_PER_IMAGE)
 
     return rois, roi_gt_class_ids, deltas, masks
