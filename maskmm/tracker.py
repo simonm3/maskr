@@ -185,13 +185,15 @@ class Tracker:
 
             # execute
             out = f(*args, **kwargs)
-
             # save outputs
             if self.log_save:
                 log.info("*** outputs")
+            if not isinstance(out, list):
+                out = [out]
             for i, ret in enumerate(out):
                 self.save(ret, f"{func_name}.r{i}")
-
+            if len(out)==1:
+                out = out[0]
             return out
 
         return wrapper

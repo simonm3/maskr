@@ -36,23 +36,10 @@ class Multiloss(Callback):
 
 ###### save checkpoint objects ##############################################################
 
-class PostBackwardSave(LearnerCallback):
-    def on_backward_end(self, **kwargs:Any):
-        for name, param in self.learn.model.named_parameters():
-            if param.requires_grad:
-                save(param, "post_back" + name)
-        for name, param in self.learn.model.named_parameters():
-            if param.requires_grad:
-                save(param.grad, "grad"+name)
-
-class PostStepSave(LearnerCallback):
-    def on_step_end(self, **kwargs:Any):
-        for name, param in self.learn.model.named_parameters():
-            if param.requires_grad:
-                save(param, "post_step"+name)
-
-class PreBatch(LearnerCallback):
-    def on_batch_begin(self, xb:Tensor, yb:Tensor, train:bool=True):
+class Batch_begin_save(LearnerCallback):
+    """ save data loaded """
+    def on_batch_begin(self, **kwargs):
+        xb = kwargs["last_input"]
         images, image_metas, tgt_rpn_match, tgt_rpn_bbox, gt_class_ids, gt_boxes, gt_masks = xb
         save(images, "images")
         save(gt_class_ids, "gt_class_ids")
@@ -60,3 +47,31 @@ class PreBatch(LearnerCallback):
         ### UNSQUEEZE FOR COMPARISON WITH MASKMM0 HAS STRANGE LAST DIMENSION THAT IS NEVER USED?
         save(tgt_rpn_match.unsqueeze(-1), "rpn_match")
         save(tgt_rpn_bbox, "rpn_bbox")
+
+class Back_end_save(LearnerCallback):
+    """ save weights and gradients before step """
+    def on_backward_end(self, **kwargs:Any):
+        for name, param in self.learn.model.named_parameters():
+            if param.requires_grad:
+                save(param, "back_" + name)
+        for name, param in self.learn.model.named_parameters():
+            if param.requires_grad:
+                save(param.grad, "grad_"+name)
+
+class Step_end_save(LearnerCallback):
+    """ save weights after step """
+    def on_step_end(self, **kwargs:Any):
+        for name, param in self.learn.model.named_parameters():
+            if param.requires_grad:
+                save(param, "step_"+name)
+
+class StrictBnFreeze(LearnerCallback):
+    """ set all batchnorm to eval as original maskmm
+    fastai Bnfreeze only does this if next layer has requires_grad=False
+    """
+    def on_epoch_begin(self, **kwargs:Any):
+        def set_bn_eval(m):
+            classname = m.__class__.__name__
+            if classname.find('BatchNorm') != -1:
+                m.eval()
+        self.learn.model.apply(set_bn_eval)

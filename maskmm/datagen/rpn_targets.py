@@ -5,7 +5,6 @@ import logging
 log = logging.getLogger()
 from maskmm.tracker import save, saveall
 
-@saveall
 def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     """Given the anchors and GT boxes, compute overlaps and identify positive
     anchors and deltas to refine them to match their corresponding GT boxes.
@@ -44,10 +43,7 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
         no_crowd_bool = torch.ones([anchors.shape[0]], dtype=torch.uint8)
 
     # Compute overlaps [num_anchors, num_gt_boxes]
-    save(anchors, "anchors_pre")
-    save(gt_boxes, "gt_boxes_pre")
     overlaps = box_utils.compute_overlaps(anchors, gt_boxes)
-    save(overlaps, "overlaps")
 
     # Match anchors to GT Boxes
     # If an anchor overlaps a GT box with IoU >= 0.7 then it's positive.
@@ -64,18 +60,15 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
         anchor_iou_argmax = np.argmax(overlaps.cpu(), axis=1)
 
     rpn_match[(anchor_iou_max < 0.3) & (no_crowd_bool)] = -1
-    save(rpn_match, "test1")
 
     # 2. Set an anchor for each GT box (regardless of IoU value).
     gt_iou_argmax = torch.argmax(overlaps, dim=0)
     if config.COMPAT:
         gt_iou_argmax = np.argmax(overlaps.cpu(), axis=0)
     rpn_match[gt_iou_argmax] = 1
-    save(rpn_match, "test2")
 
     # 3. Set anchors with high overlap as positive.
     rpn_match[anchor_iou_max >= 0.7] = 1
-    save(rpn_match, "test3")
 
     # Subsample to balance positive and negative anchors
     # Don't let positives be more than half the anchors

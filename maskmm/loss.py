@@ -1,8 +1,10 @@
 import torch
 import torch.nn.functional as F
+from maskmm.tracker import saveall
 import logging
 log = logging.getLogger()
 
+@saveall
 def rpn_class(rpn_match, rpn_class_logits):
     """RPN anchor classifier loss.
 
@@ -25,7 +27,7 @@ def rpn_class(rpn_match, rpn_class_logits):
     loss = F.cross_entropy(rpn_class_logits, anchor_class)
     return loss
 
-
+@saveall
 def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
     """Return the RPN bounding box loss graph.
 
@@ -50,7 +52,7 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
 
     return loss
 
-
+@saveall
 def mrcnn_class(target_class_ids, pred_class_logits):
     """Loss for the classifier head of Mask RCNN.
 
@@ -66,7 +68,7 @@ def mrcnn_class(target_class_ids, pred_class_logits):
 
     return loss
 
-
+@saveall
 def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
     """Loss for Mask R-CNN bounding box refinement.
 
@@ -94,7 +96,7 @@ def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
 
     return loss
 
-
+@saveall
 def mrcnn_mask(target_masks, target_class_ids, pred_masks):
     """Mask binary cross-entropy loss for the masks head.
 

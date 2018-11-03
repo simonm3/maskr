@@ -25,9 +25,6 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
         inputs[0] = inputs[0].squeeze(0)
         inputs[1] = inputs[1].squeeze(0)
 
-        save(inputs[0], "inputs0")
-        save(inputs[1], "inputs1")
-
         # Box Scores. Use the foreground class confidence. [Batch, num_rois, 1]
         scores = inputs[0][:, 1]
 

@@ -38,8 +38,6 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     gt_boxes = gt_boxes.squeeze(0)
     gt_masks = gt_masks.squeeze(0)
 
-    save(proposals, "proposals")
-
     # Normalize coordinates
     h, w = config.IMAGE_SHAPE[:2]
     scale = torch.tensor([h, w, h, w]).float()
@@ -165,10 +163,5 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         roi_gt_class_ids = torch.empty(0)
         deltas = torch.empty(0)
         masks = torch.empty(0)
-
-    save(rois, "rois")
-    save(roi_gt_class_ids,"roi_gt_class_ids")
-    save(deltas, "deltas")
-    save(masks, "masks")
 
     return rois, roi_gt_class_ids, deltas, masks

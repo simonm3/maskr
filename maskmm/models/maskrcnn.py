@@ -87,7 +87,6 @@ class MaskRCNN(nn.Module):
         config = self.config
 
         # Feature extraction
-        save(images, "pre_fpn")
         [p2_out, p3_out, p4_out, p5_out, p6_out] = self.fpn(images)
 
         # Note that P6 is used in RPN, but not in the classifier heads.

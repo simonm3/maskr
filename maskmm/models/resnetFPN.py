@@ -58,9 +58,7 @@ class FPN(nn.Module):
         c4_out = x
         x = self.C5(x)
 
-        save(x, "pre_conv")
         p5_out = self.P5_conv1(x)
-        save(p5_out, "post_conv")
 
         ups = F.interpolate(p5_out, scale_factor=2)
         p4_out = self.P4_conv1(c4_out) + ups
