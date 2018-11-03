@@ -6,7 +6,6 @@ import logging
 log = logging.getLogger()
 from maskmm.tracker import save, saveall, get_type
 
-@saveall
 def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     """Given the anchors and GT boxes, compute overlaps and identify positive
     anchors and deltas to refine them to match their corresponding GT boxes.

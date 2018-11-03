@@ -120,6 +120,8 @@ class MaskRCNN(nn.Module):
             mrcnn_mask = torch.empty(0)
         else:
             # Network Heads
+            # create batch dimension needed by pytorch. all rois are in one batch now.
+            rois = rois.unsqueeze(0)
             mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(mrcnn_feature_maps, rois)
             mrcnn_mask = self.mask(mrcnn_feature_maps, rois)
 

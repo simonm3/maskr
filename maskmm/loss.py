@@ -66,9 +66,6 @@ def mrcnn_class(target_class_ids, pred_class_logits):
     pred_class_logits: [batch, num_rois, num_classes]
     """
     # todo align sizes and comments in this file e.g. 2 images/batch => 138 ROIS
-    # batch dimension not needed for head targets
-    target_class_ids = target_class_ids.reshape(-1)
-
     if len(target_class_ids):
         loss = F.cross_entropy(pred_class_logits, target_class_ids.long())
     else:
@@ -84,10 +81,6 @@ def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
     target_class_ids: [batch, num_rois]. Integer class IDs.
     pred_bbox: [batch, num_rois, num_classes, (dy, dx, log(dh), log(dw))]
     """
-    # batch dimension not needed for head targets
-    target_bbox = target_bbox.reshape(-1, 4)
-    target_class_ids = target_class_ids.reshape(-1)
-
     if len(target_class_ids):
         # Only positive ROIs contribute to the loss. And only
         # the right class_id of each ROI. Get their indicies.
@@ -107,7 +100,7 @@ def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
 
     return loss
 
-
+@saveall
 def mrcnn_mask(target_masks, target_class_ids, pred_masks):
     """Mask binary cross-entropy loss for the masks head.
 
@@ -117,9 +110,6 @@ def mrcnn_mask(target_masks, target_class_ids, pred_masks):
     pred_masks: [batch, proposals, height, width, num_classes] float32 tensor
                 with values from 0 to 1.
     """
-    target_masks = target_masks.reshape(-1, *target_masks.shape[2:])
-    target_class_ids = target_class_ids.reshape(-1)
-
     if len(target_class_ids):
         # Only positive ROIs contribute to the loss. And only
         # the class specific mask of each ROI.

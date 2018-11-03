@@ -4,8 +4,6 @@ class Config(Config):
 
     NAME = "coco"
 
-    IMAGES_PER_GPU = 1
-
     CLASS_NAMES = ['BG', 'person', 'bicycle', 'car', 'motorcycle', 'airplane',
                    'bus', 'train', 'truck', 'boat', 'traffic light',
                    'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird',

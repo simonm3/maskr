@@ -26,8 +26,6 @@ def roialign(inputs, pool_size, image_shape):
     # Crop boxes [batch, num_boxes, (y1, x1, y2, x2)] in normalized coords
     boxes = inputs[0]
 
-    log.info(boxes.shape)
-
     # Feature Maps. List of feature maps from different level of the
     # feature pyramid. Each is [batch, height, width, channels]
     feature_maps = inputs[1:]

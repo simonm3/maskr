@@ -24,7 +24,6 @@ class Classifier(nn.Module):
 
         self.linear_bbox = nn.Linear(1024, num_classes * 4)
 
-    @saveall
     def forward(self, x, rois):
 
         x = roialign([rois] + x, self.pool_size, self.image_shape)

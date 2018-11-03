@@ -39,11 +39,9 @@ def build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config):
         head_targets.append(head_targets_item)
 
     # convert to [rois, roi_gt_class_ids, deltas, masks]
-    # unsqueeze to create a batch dimension expected by pytorch
-    res = [torch.cat(r).unsqueeze(0) for r in list(zip(*head_targets))]
+    res = [torch.cat(r) for r in list(zip(*head_targets))]
     return res
 
-@saveall
 def build_head_targets_item(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     # Normalize coordinates
     h, w = config.IMAGE_SHAPE[:2]

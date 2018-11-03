@@ -5,14 +5,15 @@ import logging
 log = logging.getLogger()
 
 class Multiloss(Callback):
-    """ handle multiple loss functions """
+    """ calculate multiple loss functions, sum, and save results """
 
     def __init__(self, learner):
         self.learner = learner
         learner.losses = []
 
     def on_loss_begin(self, **kwargs):
-        """ calculate losses, save and return sum """
+
+        # get inputs
         tgt_rpn_match, tgt_rpn_bbox,\
         rpn_class_logits, rpn_bbox,\
         target_class_ids, target_deltas, target_mask,\
@@ -36,22 +37,8 @@ class Multiloss(Callback):
 
 ###### save checkpoint objects ##############################################################
 
-class Back_end_save(LearnerCallback):
-    def on_backward_end(self, **kwargs:Any):
-        for name, param in self.learn.model.named_parameters():
-            if param.requires_grad:
-                save(param, "back_" + name)
-        for name, param in self.learn.model.named_parameters():
-            if param.requires_grad:
-                save(param.grad, "grad_"+name)
-
-class Step_end_save(LearnerCallback):
-    def on_step_end(self, **kwargs:Any):
-        for name, param in self.learn.model.named_parameters():
-            if param.requires_grad:
-                save(param, "step_"+name)
-
 class Batch_begin_save(LearnerCallback):
+    """ save data loaded """
     def on_batch_begin(self, **kwargs):
         xb = kwargs["last_input"]
         images, image_metas, tgt_rpn_match, tgt_rpn_bbox, gt_class_ids, gt_boxes, gt_masks = xb
@@ -62,9 +49,28 @@ class Batch_begin_save(LearnerCallback):
         save(tgt_rpn_match.unsqueeze(-1), "rpn_match")
         save(tgt_rpn_bbox, "rpn_bbox")
 
+class Back_end_save(LearnerCallback):
+    """ save weights and gradients before step """
+    def on_backward_end(self, **kwargs:Any):
+        for name, param in self.learn.model.named_parameters():
+            if param.requires_grad:
+                save(param, "back_" + name)
+        for name, param in self.learn.model.named_parameters():
+            if param.requires_grad:
+                save(param.grad, "grad_"+name)
+
+class Step_end_save(LearnerCallback):
+    """ save weights after step """
+    def on_step_end(self, **kwargs:Any):
+        for name, param in self.learn.model.named_parameters():
+            if param.requires_grad:
+                save(param, "step_"+name)
+
 class StrictBnFreeze(LearnerCallback):
+    """ set all batchnorm to eval as original maskmm
+    fastai Bnfreeze only does this if next layer has requires_grad=False
+    """
     def on_epoch_begin(self, **kwargs:Any):
-        """ sets all batchnorm to eval even if next layer has requires_grad """
         def set_bn_eval(m):
             classname = m.__class__.__name__
             if classname.find('BatchNorm') != -1:
