@@ -19,8 +19,8 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
                1 = positive anchor, -1 = negative anchor, 0 = neutral
     rpn_bbox: [N, (dy, dx, log(dh), log(dw))] Anchor bbox deltas.
     """
-    # strip the zeros (else allocates an anchor to them)
-    ids = gt_class_ids.nonzero().squeeze(-1)
+    # strip the background
+    ids = gt_boxes.ne(0).any(dim=1).nonzero().squeeze()
     gt_class_ids = gt_class_ids[ids]
     gt_boxes = gt_boxes[ids]
 

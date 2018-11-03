@@ -30,7 +30,7 @@ class Multiloss(Callback):
         losses = [rpn_class_loss, rpn_bbox_loss, mrcnn_class_loss, mrcnn_bbox_loss, mrcnn_mask_loss]
         total = sum(losses).squeeze()
         losses = [total] + losses
-        #log.info(losses)
+        log.info(losses)
         self.learner.losses.append(losses)
 
         return total

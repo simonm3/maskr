@@ -2,14 +2,14 @@ import torch
 import numpy as np
 from maskmm.utils import box_utils
 from maskmm.lib.nms.nms_wrapper import nms
-from maskmm.utils.utils import batch_slice, pad
+from maskmm.utils import utils
 
 from maskmm.tracker import save, saveall
 import logging
 log = logging.getLogger()
 
 @saveall
-@batch_slice
+@utils.batch_slice
 def proposals(inputs, proposal_count, nms_threshold, anchors, config):
     """Receives anchor scores and selects a subset to pass as proposals
        to the second stage. Filtering is done based on anchor scores and
@@ -61,5 +61,7 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
     # Normalize dimensions to range of 0 to 1.
     norm = torch.tensor([height, width, height, width]).float()
     rpn_rois = boxes / norm
+
+    rpn_rois = utils.pad(rpn_rois, proposal_count)
 
     return [rpn_rois]

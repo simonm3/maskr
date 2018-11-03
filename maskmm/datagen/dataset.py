@@ -229,7 +229,8 @@ class Dataset(Dataset):
         active_class_ids[source_class_ids] = 1
         image_meta = image_utils.compose_image_meta(image_id, shape, window, active_class_ids)
 
-        # if dim>1 then zeropad so dataloader can stack batch
+        # zeropad so dataloader can stack batch. rpn_match and rpn_bbox already padded
+        class_ids = utils.pad(class_ids, self.config.MAX_GT_INSTANCES)
         bbox = utils.pad(bbox, self.config.MAX_GT_INSTANCES)
         mask = utils.pad(mask, self.config.MAX_GT_INSTANCES, dim=2)
 

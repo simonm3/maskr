@@ -43,6 +43,16 @@ def build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config):
     return res
 
 def build_head_targets_item(proposals, gt_class_ids, gt_boxes, gt_masks, config):
+
+    # strip the zero padding
+    ids = proposals.ne(0).any(dim=1).nonzero().squeeze()
+    proposals = proposals[ids]
+
+    ids = gt_boxes.ne(0).any(dim=1).nonzero().squeeze()
+    gt_class_ids = gt_class_ids[ids]
+    gt_boxes = gt_boxes[ids]
+    gt_masks = gt_masks[ids]
+
     # Normalize coordinates
     h, w = config.IMAGE_SHAPE[:2]
     scale = torch.tensor([h, w, h, w]).float()
