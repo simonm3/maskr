@@ -8,6 +8,7 @@ from maskmm.tracker import save, saveall
 import logging
 log = logging.getLogger()
 
+@saveall
 @batch_slice
 def proposals(inputs, proposal_count, nms_threshold, anchors, config):
     """Receives anchor scores and selects a subset to pass as proposals
@@ -61,7 +62,4 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
     norm = torch.tensor([height, width, height, width]).float()
     rpn_rois = boxes / norm
 
-    rpn_rois = pad(rpn_rois, proposal_count)
-
-    save(rpn_rois, "normalized_boxes")
     return [rpn_rois]

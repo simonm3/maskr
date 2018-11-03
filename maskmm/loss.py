@@ -4,6 +4,7 @@ from maskmm.tracker import saveall
 import logging
 log = logging.getLogger()
 
+@saveall
 def rpn_class(rpn_match, rpn_class_logits):
     """RPN anchor classifier loss.
 
@@ -56,7 +57,7 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
 
     return loss
 
-
+@saveall
 def mrcnn_class(target_class_ids, pred_class_logits):
     """Loss for the classifier head of Mask RCNN.
 
@@ -65,6 +66,7 @@ def mrcnn_class(target_class_ids, pred_class_logits):
     pred_class_logits: [batch, num_rois, num_classes]
     """
     # todo align sizes and comments in this file e.g. 2 images/batch => 138 ROIS
+    # batch dimension not needed for head targets
     target_class_ids = target_class_ids.reshape(-1)
 
     if len(target_class_ids):
@@ -74,7 +76,7 @@ def mrcnn_class(target_class_ids, pred_class_logits):
             loss = torch.tensor([0]).float()
     return loss
 
-
+@saveall
 def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
     """Loss for Mask R-CNN bounding box refinement.
 
@@ -82,6 +84,7 @@ def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
     target_class_ids: [batch, num_rois]. Integer class IDs.
     pred_bbox: [batch, num_rois, num_classes, (dy, dx, log(dh), log(dw))]
     """
+    # batch dimension not needed for head targets
     target_bbox = target_bbox.reshape(-1, 4)
     target_class_ids = target_class_ids.reshape(-1)
 

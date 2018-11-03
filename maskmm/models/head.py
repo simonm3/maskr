@@ -1,6 +1,8 @@
 import torch.nn as nn
 from maskmm.filters.roialign import roialign
 from .samepad2d import SamePad2d
+
+from maskmm.tracker import saveall, save
 import logging
 log = logging.getLogger()
 
@@ -22,6 +24,7 @@ class Classifier(nn.Module):
 
         self.linear_bbox = nn.Linear(1024, num_classes * 4)
 
+    @saveall
     def forward(self, x, rois):
 
         x = roialign([rois] + x, self.pool_size, self.image_shape)
@@ -37,6 +40,7 @@ class Classifier(nn.Module):
         x = self.relu(x)
 
         x = x.view(-1,1024)
+
         mrcnn_class_logits = self.linear_class(x)
         mrcnn_probs = self.softmax(mrcnn_class_logits)
 

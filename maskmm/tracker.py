@@ -138,6 +138,10 @@ class Tracker:
             except:
                 return pickle.load(open(filepath, "rb"))
 
+    def load0(self, filename):
+        """ load object from basepath """
+        return self.load(filename, self.basepath)
+
     def saveall(self, f):
         """ function decorator that saves params and return values to files in self.trackpath
 
@@ -161,6 +165,8 @@ class Tracker:
             params = dict(zip(f.__code__.co_varnames, args))
             params.update(kwargs)
             for param, v in params.items():
+                if param=="self":
+                    continue
                 self.save(v, f"{func_name}.{param}")
 
             # execute
@@ -228,7 +234,7 @@ class Tracker:
             else:
                 log.info(f"matched {filename}")
         except (TypeError, RuntimeError):
-            log.warning(f"shapes unequal {filename}{typemess}")
+            log.warning(f"not comparable {filename}{typemess}")
             diff = -1
         return diff
 

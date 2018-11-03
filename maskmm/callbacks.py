@@ -29,30 +29,31 @@ class Multiloss(Callback):
         losses = [rpn_class_loss, rpn_bbox_loss, mrcnn_class_loss, mrcnn_bbox_loss, mrcnn_mask_loss]
         total = sum(losses).squeeze()
         losses = [total] + losses
-        log.info(losses)
+        #log.info(losses)
         self.learner.losses.append(losses)
 
         return total
 
 ###### save checkpoint objects ##############################################################
 
-class PostBackwardSave(LearnerCallback):
+class Back_end_save(LearnerCallback):
     def on_backward_end(self, **kwargs:Any):
         for name, param in self.learn.model.named_parameters():
             if param.requires_grad:
-                save(param, "post_back" + name)
+                save(param, "back_" + name)
         for name, param in self.learn.model.named_parameters():
             if param.requires_grad:
-                save(param.grad, "grad"+name)
+                save(param.grad, "grad_"+name)
 
-class PostStepSave(LearnerCallback):
+class Step_end_save(LearnerCallback):
     def on_step_end(self, **kwargs:Any):
         for name, param in self.learn.model.named_parameters():
             if param.requires_grad:
-                save(param, "post_step"+name)
+                save(param, "step_"+name)
 
-class PreBatch(LearnerCallback):
-    def on_batch_begin(self, xb:Tensor, yb:Tensor, train:bool=True):
+class Batch_begin_save(LearnerCallback):
+    def on_batch_begin(self, **kwargs):
+        xb = kwargs["last_input"]
         images, image_metas, tgt_rpn_match, tgt_rpn_bbox, gt_class_ids, gt_boxes, gt_masks = xb
         save(images, "images")
         save(gt_class_ids, "gt_class_ids")
@@ -60,3 +61,12 @@ class PreBatch(LearnerCallback):
         ### UNSQUEEZE FOR COMPARISON WITH MASKMM0 HAS STRANGE LAST DIMENSION THAT IS NEVER USED?
         save(tgt_rpn_match.unsqueeze(-1), "rpn_match")
         save(tgt_rpn_bbox, "rpn_bbox")
+
+class StrictBnFreeze(LearnerCallback):
+    def on_epoch_begin(self, **kwargs:Any):
+        """ sets all batchnorm to eval even if next layer has requires_grad """
+        def set_bn_eval(m):
+            classname = m.__class__.__name__
+            if classname.find('BatchNorm') != -1:
+                m.eval()
+        self.learn.model.apply(set_bn_eval)

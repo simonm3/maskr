@@ -8,8 +8,7 @@ from maskmm.utils.utils import batch_slice
 import logging
 log = logging.getLogger()
 
-@batch_slice
-def build_head_targets(inputs, config):
+def build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config):
     """ Subsamples proposals and generates target box refinment, class_ids,
     and masks for each.
 
@@ -33,8 +32,19 @@ def build_head_targets(inputs, config):
                  Masks cropped to bbox boundaries and resized to neural
                  network output size.
     """
-    proposals, gt_class_ids, gt_boxes, gt_masks = inputs
+    head_targets = []
+    for i in range(len(rpn_rois)):
+        head_targets_item = build_head_targets_item(
+            rpn_rois[i], gt_class_ids[i], gt_boxes[i], gt_masks[i], config)
+        head_targets.append(head_targets_item)
 
+    # convert to [rois, roi_gt_class_ids, deltas, masks]
+    # unsqueeze to create a batch dimension expected by pytorch
+    res = [torch.cat(r).unsqueeze(0) for r in list(zip(*head_targets))]
+    return res
+
+@saveall
+def build_head_targets_item(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     # Normalize coordinates
     h, w = config.IMAGE_SHAPE[:2]
     scale = torch.tensor([h, w, h, w]).float()
@@ -160,10 +170,5 @@ def build_head_targets(inputs, config):
         roi_gt_class_ids = torch.empty(0)
         deltas = torch.empty(0)
         masks = torch.empty(0)
-
-    rois = utils.pad(rois, config.TRAIN_ROIS_PER_IMAGE)
-    roi_gt_class_ids = utils.pad(roi_gt_class_ids, config.TRAIN_ROIS_PER_IMAGE)
-    deltas = utils.pad(deltas, config.TRAIN_ROIS_PER_IMAGE)
-    masks = utils.pad(masks, config.TRAIN_ROIS_PER_IMAGE)
 
     return rois, roi_gt_class_ids, deltas, masks

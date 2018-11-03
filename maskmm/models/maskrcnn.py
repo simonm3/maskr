@@ -77,7 +77,6 @@ class MaskRCNN(nn.Module):
         config = self.config
 
         # Feature extraction
-        save(images, "pre_fpn")
         [p2_out, p3_out, p4_out, p5_out, p6_out] = self.fpn(images)
 
         # Note that P6 is used in RPN, but not in the classifier heads.
@@ -112,7 +111,7 @@ class MaskRCNN(nn.Module):
             # Subsample proposals and generate target outputs for training
             # Note inputs and outputs are zero padded.
             rois, target_class_ids, target_deltas, target_mask = \
-                build_head_targets([rpn_rois, gt_class_ids, gt_boxes, gt_masks], config)
+                build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
 
         if len(rois) == 0:
             mrcnn_class_logits = torch.empty(0)

@@ -154,7 +154,7 @@ class Dataset(Dataset):
 
     def __getitem__(self, image_index):
         """ return image, rpn_targets and ground truth """
-        image_id = self.image_ids[image_index]
+        image_id = self.image_ids[image_index+108]
         image, image_metas, gt_class_ids, gt_boxes, gt_masks = \
             self.load_image_gt(image_id, use_mini_mask=self.config.USE_MINI_MASK)
 
@@ -229,8 +229,7 @@ class Dataset(Dataset):
         active_class_ids[source_class_ids] = 1
         image_meta = image_utils.compose_image_meta(image_id, shape, window, active_class_ids)
 
-        # zeropad so dataloader can stack batch
-        class_ids = utils.pad(class_ids, self.config.MAX_GT_INSTANCES)
+        # if dim>1 then zeropad so dataloader can stack batch
         bbox = utils.pad(bbox, self.config.MAX_GT_INSTANCES)
         mask = utils.pad(mask, self.config.MAX_GT_INSTANCES, dim=2)
 

@@ -21,7 +21,7 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     rpn_bbox: [N, (dy, dx, log(dh), log(dw))] Anchor bbox deltas.
     """
     # strip the zeros (else allocates an anchor to them)
-    ids = gt_class_ids.nonzero().squeeze()
+    ids = gt_class_ids.nonzero().squeeze(-1)
     gt_class_ids = gt_class_ids[ids]
     gt_boxes = gt_boxes[ids]
 
@@ -49,10 +49,7 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
         no_crowd_bool = torch.ones([anchors.shape[0]], dtype=torch.uint8)
 
     # Compute overlaps [num_anchors, num_gt_boxes]
-    save(anchors, "anchors_pre")
-    save(gt_boxes, "gt_boxes_pre")
     overlaps = box_utils.compute_overlaps(anchors, gt_boxes)
-    save(overlaps, "overlaps")
 
     # Match anchors to GT Boxes
     # If an anchor overlaps a GT box with IoU >= 0.7 then it's positive.
@@ -71,7 +68,6 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
         anchor_iou_max, anchor_iou_argmax = torch.max(overlaps, dim=1)
 
     rpn_match[(anchor_iou_max < 0.3) & (no_crowd_bool)] = -1
-    save(rpn_match, "test1")
 
     # 2. Set an anchor for each GT box (regardless of IoU value).
     if config.COMPAT:
@@ -79,11 +75,9 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     else:
         gt_iou_argmax = torch.argmax(overlaps, dim=0)
     rpn_match[gt_iou_argmax] = 1
-    save(rpn_match, "test2")
 
     # 3. Set anchors with high overlap as positive.
     rpn_match[anchor_iou_max >= 0.7] = 1
-    save(rpn_match, "test3")
 
     # Subsample to balance positive and negative anchors
     # Don't let positives be more than half the anchors
@@ -96,7 +90,6 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
         else:
             ids = ids[torch.randperm(len(ids))][:extra]
         rpn_match[ids] = 0
-    save(rpn_match, "test4")
 
     # Same for negative proposals
     ids = rpn_match.eq(-1).nonzero().squeeze(-1)
@@ -108,7 +101,6 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
         else:
             ids = ids[torch.randperm(len(ids))][:extra]
         rpn_match[ids] = 0
-    save(rpn_match, "test5")
 
     # For positive anchors, compute shift and scale needed to transform them
     # to match the corresponding GT boxes.
