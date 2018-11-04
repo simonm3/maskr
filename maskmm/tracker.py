@@ -4,6 +4,7 @@ import torch
 import numpy as np
 import os
 from os.path import join
+import numbers
 import inspect
 from functools import wraps
 import shutil
@@ -226,7 +227,12 @@ class Tracker:
 
         # compare content
         try:
-            diff = mse(a, b)
+            if isinstance(a, numbers.Number):
+                diff = a-b
+            elif isinstance(a, str):
+                diff = a==b
+            else:
+                diff = mse(a, b)
             if diff > self.tolerance:
                 log.warning(f"content unequal {filename}={diff:.0e}{typemess}")
             elif self.log_type and (af!=bf):
@@ -275,6 +281,7 @@ def rngnext():
 
 tracker = Tracker("unnamed")
 load = tracker.load
+load0 = tracker.load0
 save = tracker.save
 saveall = tracker.saveall
 match = tracker.match

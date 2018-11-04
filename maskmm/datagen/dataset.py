@@ -152,6 +152,7 @@ class Dataset(Dataset):
         class_ids = np.empty([0], np.int32)
         return mask, class_ids
 
+    @saveall
     def __getitem__(self, image_index):
         """ return image, rpn_targets and ground truth """
         image_id = self.image_ids[image_index]

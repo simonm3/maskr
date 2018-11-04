@@ -85,12 +85,12 @@ def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
         # Only positive ROIs contribute to the loss. And only
         # the right class_id of each ROI. Get their indicies.
         positive_roi_ix = torch.nonzero(target_class_ids > 0)[:, 0]
-        positive_roi_class_ids = target_class_ids[positive_roi_ix.data].long()
+        positive_roi_class_ids = target_class_ids[positive_roi_ix].long()
         indices = torch.stack((positive_roi_ix, positive_roi_class_ids), dim=1)
 
         # Gather the deltas (predicted and true) that contribute to loss
-        target_bbox = target_bbox[indices[:, 0].data, :]
-        pred_bbox = pred_bbox[indices[:, 0].data, indices[:, 1].data, :]
+        target_bbox = target_bbox[indices[:, 0], :]
+        pred_bbox = pred_bbox[indices[:, 0], indices[:, 1], :]
 
         # Smooth L1 loss
         loss = F.smooth_l1_loss(pred_bbox, target_bbox)

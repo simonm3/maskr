@@ -10,7 +10,7 @@ log = logging.getLogger()
 
 @saveall
 @utils.batch_slice
-def proposals(inputs, proposal_count, nms_threshold, anchors, config):
+def proposals(inputs, proposal_count, config):
     """Receives anchor scores and selects a subset to pass as proposals
        to the second stage. Filtering is done based on anchor scores and
        non-max suppression to remove overlaps. It also applies bounding
@@ -28,6 +28,8 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
     # Box Scores. Use the foreground class confidence. [Batch, num_rois, 1]
     rpn_class = rpn_class[:, 1]
 
+    anchors = config.ANCHORS
+
     # standardise
     std_dev = torch.tensor(config.RPN_BBOX_STD_DEV).float().reshape([1,4])
     rpn_bbox = rpn_bbox * std_dev
@@ -38,8 +40,8 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
     rpn_class, order = rpn_class.sort(descending=True)
     order = order[:pre_nms_limit]
     rpn_class = rpn_class[:pre_nms_limit]
-    rpn_bbox = rpn_bbox[order.data, :]
-    anchors = anchors[order.data, :]
+    rpn_bbox = rpn_bbox[order, :]
+    anchors = anchors[order, :]
 
     # Apply deltas to anchors to get refined anchors.
     boxes = box_utils.apply_box_deltas(anchors, rpn_bbox)
@@ -54,7 +56,7 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
     # for small objects, so we're skipping it.
 
     # Non-max suppression
-    keep = nms(torch.cat((boxes, rpn_class.unsqueeze(1)), 1).data, nms_threshold)
+    keep = nms(torch.cat((boxes, rpn_class.unsqueeze(1)), 1), config.RPN_NMS_THRESHOLD)
     keep = keep[:proposal_count]
     boxes = boxes[keep, :]
 
@@ -64,4 +66,4 @@ def proposals(inputs, proposal_count, nms_threshold, anchors, config):
 
     rpn_rois = utils.pad(rpn_rois, proposal_count)
 
-    return [rpn_rois]
+    return rpn_rois

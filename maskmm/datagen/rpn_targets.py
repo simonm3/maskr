@@ -20,7 +20,7 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     rpn_bbox: [N, (dy, dx, log(dh), log(dw))] Anchor bbox deltas.
     """
     # strip the background
-    ids = gt_boxes.ne(0).any(dim=1).nonzero().squeeze()
+    ids = gt_class_ids.ne(0).nonzero().squeeze(-1)
     gt_class_ids = gt_class_ids[ids]
     gt_boxes = gt_boxes[ids]
 

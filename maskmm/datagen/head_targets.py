@@ -8,6 +8,7 @@ from maskmm.utils.utils import batch_slice
 import logging
 log = logging.getLogger()
 
+@saveall
 def build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config):
     """ Subsamples proposals and generates target box refinment, class_ids,
     and masks for each.
@@ -45,10 +46,10 @@ def build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config):
 def build_head_targets_item(proposals, gt_class_ids, gt_boxes, gt_masks, config):
 
     # strip the zero padding
-    ids = proposals.ne(0).any(dim=1).nonzero().squeeze()
+    ids = proposals.ne(0).any(dim=1).nonzero().squeeze(-1)
     proposals = proposals[ids]
 
-    ids = gt_boxes.ne(0).any(dim=1).nonzero().squeeze()
+    ids = gt_boxes.ne(0).any(dim=1).nonzero().squeeze(-1)
     gt_class_ids = gt_class_ids[ids]
     gt_boxes = gt_boxes[ids]
     gt_masks = gt_masks[ids]
@@ -64,11 +65,11 @@ def build_head_targets_item(proposals, gt_class_ids, gt_boxes, gt_masks, config)
     if len(torch.nonzero(gt_class_ids < 0)):
         crowd_ix = torch.nonzero(gt_class_ids < 0)[:, 0]
         non_crowd_ix = torch.nonzero(gt_class_ids > 0)[:, 0]
-        crowd_boxes = gt_boxes[crowd_ix.data, :]
-        crowd_masks = gt_masks[crowd_ix.data, :, :]
-        gt_class_ids = gt_class_ids[non_crowd_ix.data]
-        gt_boxes = gt_boxes[non_crowd_ix.data, :]
-        gt_masks = gt_masks[non_crowd_ix.data, :]
+        crowd_boxes = gt_boxes[crowd_ix, :]
+        crowd_masks = gt_masks[crowd_ix, :, :]
+        gt_class_ids = gt_class_ids[non_crowd_ix]
+        gt_boxes = gt_boxes[non_crowd_ix, :]
+        gt_masks = gt_masks[non_crowd_ix, :]
 
         # Compute overlaps with crowd boxes [anchors, crowds]
         crowd_overlaps = box_utils.compute_overlaps(proposals, crowd_boxes)
@@ -96,21 +97,21 @@ def build_head_targets_item(proposals, gt_class_ids, gt_boxes, gt_masks, config)
         rand_idx = rand_idx[:positive_count]
         positive_indices = positive_indices[rand_idx]
         positive_count = len(positive_indices)
-        positive_rois = proposals[positive_indices.data, :]
+        positive_rois = proposals[positive_indices, :]
 
         # Assign positive ROIs to GT boxes.
-        positive_overlaps = overlaps[positive_indices.data, :]
+        positive_overlaps = overlaps[positive_indices, :]
         roi_gt_box_assignment = torch.max(positive_overlaps, dim=1)[1]
-        roi_gt_boxes = gt_boxes[roi_gt_box_assignment.data, :]
-        roi_gt_class_ids = gt_class_ids[roi_gt_box_assignment.data]
+        roi_gt_boxes = gt_boxes[roi_gt_box_assignment, :]
+        roi_gt_class_ids = gt_class_ids[roi_gt_box_assignment]
 
         # Compute bbox refinement for positive ROI
-        deltas = box_utils.box_refinement(positive_rois.data, roi_gt_boxes.data)
+        deltas = box_utils.box_refinement(positive_rois, roi_gt_boxes)
         std_dev = torch.tensor(config.BBOX_STD_DEV).float()
         deltas /= std_dev
 
         # Assign positive ROIs to GT masks
-        roi_masks = gt_masks[roi_gt_box_assignment.data, :, :]
+        roi_masks = gt_masks[roi_gt_box_assignment, :, :]
 
         # Compute mask targets
         boxes = positive_rois
@@ -149,7 +150,7 @@ def build_head_targets_item(proposals, gt_class_ids, gt_boxes, gt_masks, config)
         rand_idx = rand_idx[:negative_count]
         negative_indices = negative_indices[rand_idx]
         negative_count = len(negative_indices)
-        negative_rois = proposals[negative_indices.data, :]
+        negative_rois = proposals[negative_indices, :]
     else:
         negative_count = 0
 

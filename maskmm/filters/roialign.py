@@ -55,10 +55,10 @@ def roialign(inputs, pool_size, image_shape):
         if not ix.any():
             continue
         ix = torch.nonzero(ix)[:,0]
-        level_boxes = boxes[ix.data, :]
+        level_boxes = boxes[ix, :]
 
         # Keep track of which box is mapped to which level
-        box_to_level.append(ix.data)
+        box_to_level.append(ix)
 
         # Stop gradient propogation to ROI proposals
         level_boxes = level_boxes.detach()

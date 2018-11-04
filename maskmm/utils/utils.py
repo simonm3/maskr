@@ -24,6 +24,8 @@ def batch_slice(f):
         for i in range(len(inputs[0])):
             inputs_item = [x[i] for x in inputs]
             out_item = f(inputs_item, *args, **kwargs)
+            if not isinstance(out_item, list):
+                out_item = [out_item]
             out.append(out_item)
 
         # convert list of instance outputs to list of stacked output objects

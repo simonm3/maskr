@@ -48,7 +48,7 @@ class MaskRCNN(nn.Module):
         # Build the shared convolutional layers.
         # Bottom-up Layers
         # Returns a list of the last layers of each stage, 5 in total.
-        # Don't create the thead (stage 5), so we pick the 4th item in the list.
+        # Don't create the head (stage 5), so we pick the 4th item in the list.
         resnet = ResNet("resnet101", stage5=True)
         C1, C2, C3, C4, C5 = resnet.stages()
 
@@ -68,8 +68,8 @@ class MaskRCNN(nn.Module):
         """ mode=training, validation, detection """
 
         # tgt_rpn_match and tgt_rpn_bbox not used but passed through because.....
-        # loss is calculated in callback to store results but this has single param output of this function.
-        # loss_func is not able to store intermediate results
+        # fastai loss is calculated in callback to store results but this has single param output of this function.
+        # fastai loss_func is not able to store intermediate results
         images, image_metas,\
         tgt_rpn_match, tgt_rpn_bbox, \
         gt_class_ids, gt_boxes, gt_masks = inputs
@@ -103,9 +103,11 @@ class MaskRCNN(nn.Module):
             else config.POST_NMS_ROIS_INFERENCE
         rpn_rois = proposals([rpn_class, rpn_bbox],
                              proposal_count=proposal_count,
-                             nms_threshold=config.RPN_NMS_THRESHOLD,
-                             anchors=config.ANCHORS,
                              config=config)
+
+        if not config.HEAD:
+            return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
+                             rpn_class_logits, rpn_bbox, 0,0,0,0,0,0])
 
         with torch.no_grad():
             # Subsample proposals and generate target outputs for training
