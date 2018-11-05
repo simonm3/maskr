@@ -24,13 +24,7 @@ class Classifier(nn.Module):
 
         self.linear_bbox = nn.Linear(1024, num_classes * 4)
 
-    def forward(self, x, rois):
-
-        x = roialign([rois] + x, self.pool_size, self.image_shape)
-
-        # each roi is one input for the head [batch, rois, 256, 7, 7] => [rois, 256, 7, 7]
-        x = x.reshape(-1, *x.shape[2:])
-
+    def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -69,12 +63,7 @@ class Mask(nn.Module):
         self.sigmoid = nn.Sigmoid()
         self.relu = nn.ReLU(inplace=True)
 
-    def forward(self, x, rois):
-        x = roialign([rois] + x, self.pool_size, self.image_shape)
-
-        # each roi is one input for the head [batch, rois/batch, 256, 7, 7] => [rois, 256, 7, 7]
-        x = x.reshape(-1, *x.shape[2:])
-
+    def forward(self, x):
         x = self.conv1(self.padding(x))
         x = self.bn1(x)
         x = self.relu(x)

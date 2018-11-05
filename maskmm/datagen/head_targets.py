@@ -3,7 +3,7 @@ from maskmm.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
 from maskmm.utils import box_utils, utils
 import numpy as np
 from maskmm.tracker import save, saveall
-from maskmm.utils.utils import batch_slice
+from maskmm.utils.utils import batch_slice, pad
 
 import logging
 log = logging.getLogger()
@@ -40,7 +40,10 @@ def build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config):
         head_targets.append(head_targets_item)
 
     # convert to [rois, roi_gt_class_ids, deltas, masks]
-    res = [torch.cat(r) for r in list(zip(*head_targets))]
+    # stack rois as need batches for roialign
+    res = list(zip(*head_targets))
+    res = [torch.stack(res[0])]+[torch.cat(r) for r in res[1:]]
+
     return res
 
 def build_head_targets_item(proposals, gt_class_ids, gt_boxes, gt_masks, config):
@@ -175,9 +178,12 @@ def build_head_targets_item(proposals, gt_class_ids, gt_boxes, gt_masks, config)
         zeros = torch.zeros(negative_count, config.MASK_SHAPE[0], config.MASK_SHAPE[1])
         masks = zeros
     else:
-        rois = torch.empty(0)
+        # needs to be right shape for stacking. others are cat.
+        rois = torch.empty(0, 4)
         roi_gt_class_ids = torch.empty(0)
         deltas = torch.empty(0)
         masks = torch.empty(0)
+
+    rois = pad(rois, config.TRAIN_ROIS_PER_IMAGE)
 
     return rois, roi_gt_class_ids, deltas, masks

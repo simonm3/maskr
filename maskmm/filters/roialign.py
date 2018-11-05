@@ -4,7 +4,7 @@ from maskmm.utils.utils import batch_slice
 import logging
 log = logging.getLogger()
 
-@batch_slice
+@batch_slice(torch.cat)
 def roialign(inputs, pool_size, image_shape):
     """Implements ROI Pooling on multiple levels of the feature pyramid.
 
@@ -25,6 +25,12 @@ def roialign(inputs, pool_size, image_shape):
     """
     # Crop boxes [batch, num_boxes, (y1, x1, y2, x2)] in normalized coords
     boxes = inputs[0]
+
+    # remove the zero padding
+    ix = boxes.ne(0).any(dim=1).nonzero().squeeze(-1)
+    if len(ix)==0:
+        return torch.empty(0)
+    boxes = boxes[ix]
 
     # Feature Maps. List of feature maps from different level of the
     # feature pyramid. Each is [batch, height, width, channels]

@@ -9,7 +9,7 @@ import logging
 log = logging.getLogger()
 
 @saveall
-@utils.batch_slice
+@utils.batch_slice()
 def proposals(inputs, proposal_count, config):
     """Receives anchor scores and selects a subset to pass as proposals
        to the second stage. Filtering is done based on anchor scores and

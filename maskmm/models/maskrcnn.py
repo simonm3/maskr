@@ -12,6 +12,7 @@ from maskmm.utils import image_utils
 from maskmm.datagen.head_targets import build_head_targets
 from maskmm.filters.proposals import proposals
 from maskmm.filters.detections import filter_detections
+from maskmm.filters.roialign import roialign
 
 from .rpn import RPN
 from .resnet import ResNet
@@ -121,11 +122,13 @@ class MaskRCNN(nn.Module):
             mrcnn_bbox = torch.empty(0)
             mrcnn_mask = torch.empty(0)
         else:
-            # Network Heads
-            # create batch dimension needed by pytorch. all rois are in one batch now.
-            rois = rois.unsqueeze(0)
-            mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(mrcnn_feature_maps, rois)
-            mrcnn_mask = self.mask(mrcnn_feature_maps, rois)
+            # roialign, merge batch dimension and run classifier head
+            x = roialign([rois] + mrcnn_feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
+            mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(x)
+
+            # roialign, merge batch dimension and run mask head
+            x = roialign([rois] + mrcnn_feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
+            mrcnn_mask = self.mask(x)
 
         return dict(out=[tgt_rpn_match, tgt_rpn_bbox,\
                         rpn_class_logits, rpn_bbox,\
