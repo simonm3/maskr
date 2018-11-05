@@ -1,6 +1,10 @@
 import torch
 from maskmm.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
+from maskmm.utils.utils import batch_slice
+import logging
+log = logging.getLogger()
 
+@batch_slice(torch.cat)
 def roialign(inputs, pool_size, image_shape):
     """Implements ROI Pooling on multiple levels of the feature pyramid.
 
@@ -19,13 +23,14 @@ def roialign(inputs, pool_size, image_shape):
     The width and height are those specific in the pool_shape in the layer
     constructor.
     """
-
-    # Currently only supports batchsize 1
-    for i in range(len(inputs)):
-        inputs[i] = inputs[i].squeeze(0)
-
     # Crop boxes [batch, num_boxes, (y1, x1, y2, x2)] in normalized coords
     boxes = inputs[0]
+
+    # remove the zero padding
+    ix = boxes.ne(0).any(dim=1).nonzero().squeeze(-1)
+    if len(ix)==0:
+        return torch.empty(0)
+    boxes = boxes[ix]
 
     # Feature Maps. List of feature maps from different level of the
     # feature pyramid. Each is [batch, height, width, channels]
@@ -56,10 +61,10 @@ def roialign(inputs, pool_size, image_shape):
         if not ix.any():
             continue
         ix = torch.nonzero(ix)[:,0]
-        level_boxes = boxes[ix.data, :]
+        level_boxes = boxes[ix, :]
 
         # Keep track of which box is mapped to which level
-        box_to_level.append(ix.data)
+        box_to_level.append(ix)
 
         # Stop gradient propogation to ROI proposals
         level_boxes = level_boxes.detach()
@@ -92,4 +97,4 @@ def roialign(inputs, pool_size, image_shape):
     _, box_to_level = torch.sort(box_to_level)
     pooled = pooled[box_to_level, :, :]
 
-    return pooled
+    return [pooled]

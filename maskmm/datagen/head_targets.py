@@ -1,14 +1,15 @@
 import torch
 from maskmm.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
-from maskmm.utils import box_utils
+from maskmm.utils import box_utils, utils
 import numpy as np
 from maskmm.tracker import save, saveall
+from maskmm.utils.utils import batch_slice, pad
 
 import logging
 log = logging.getLogger()
 
-
-def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
+@saveall
+def build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config):
     """ Subsamples proposals and generates target box refinment, class_ids,
     and masks for each.
 
@@ -32,11 +33,29 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
                  Masks cropped to bbox boundaries and resized to neural
                  network output size.
     """
-    # Currently only supports batchsize 1
-    proposals = proposals.squeeze(0)
-    gt_class_ids = gt_class_ids.squeeze(0)
-    gt_boxes = gt_boxes.squeeze(0)
-    gt_masks = gt_masks.squeeze(0)
+    head_targets = []
+    for i in range(len(rpn_rois)):
+        head_targets_item = build_head_targets_item(
+            rpn_rois[i], gt_class_ids[i], gt_boxes[i], gt_masks[i], config)
+        head_targets.append(head_targets_item)
+
+    # convert to [rois, roi_gt_class_ids, deltas, masks]
+    # stack rois as need batches for roialign
+    res = list(zip(*head_targets))
+    res = [torch.stack(res[0])]+[torch.cat(r) for r in res[1:]]
+
+    return res
+
+def build_head_targets_item(proposals, gt_class_ids, gt_boxes, gt_masks, config):
+
+    # strip the zero padding
+    ids = proposals.ne(0).any(dim=1).nonzero().squeeze(-1)
+    proposals = proposals[ids]
+
+    ids = gt_boxes.ne(0).any(dim=1).nonzero().squeeze(-1)
+    gt_class_ids = gt_class_ids[ids]
+    gt_boxes = gt_boxes[ids]
+    gt_masks = gt_masks[ids]
 
     # Normalize coordinates
     h, w = config.IMAGE_SHAPE[:2]
@@ -49,11 +68,11 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     if len(torch.nonzero(gt_class_ids < 0)):
         crowd_ix = torch.nonzero(gt_class_ids < 0)[:, 0]
         non_crowd_ix = torch.nonzero(gt_class_ids > 0)[:, 0]
-        crowd_boxes = gt_boxes[crowd_ix.data, :]
-        crowd_masks = gt_masks[crowd_ix.data, :, :]
-        gt_class_ids = gt_class_ids[non_crowd_ix.data]
-        gt_boxes = gt_boxes[non_crowd_ix.data, :]
-        gt_masks = gt_masks[non_crowd_ix.data, :]
+        crowd_boxes = gt_boxes[crowd_ix, :]
+        crowd_masks = gt_masks[crowd_ix, :, :]
+        gt_class_ids = gt_class_ids[non_crowd_ix]
+        gt_boxes = gt_boxes[non_crowd_ix, :]
+        gt_masks = gt_masks[non_crowd_ix, :]
 
         # Compute overlaps with crowd boxes [anchors, crowds]
         crowd_overlaps = box_utils.compute_overlaps(proposals, crowd_boxes)
@@ -81,21 +100,21 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         rand_idx = rand_idx[:positive_count]
         positive_indices = positive_indices[rand_idx]
         positive_count = len(positive_indices)
-        positive_rois = proposals[positive_indices.data, :]
+        positive_rois = proposals[positive_indices, :]
 
         # Assign positive ROIs to GT boxes.
-        positive_overlaps = overlaps[positive_indices.data, :]
+        positive_overlaps = overlaps[positive_indices, :]
         roi_gt_box_assignment = torch.max(positive_overlaps, dim=1)[1]
-        roi_gt_boxes = gt_boxes[roi_gt_box_assignment.data, :]
-        roi_gt_class_ids = gt_class_ids[roi_gt_box_assignment.data]
+        roi_gt_boxes = gt_boxes[roi_gt_box_assignment, :]
+        roi_gt_class_ids = gt_class_ids[roi_gt_box_assignment]
 
         # Compute bbox refinement for positive ROI
-        deltas = box_utils.box_refinement(positive_rois.data, roi_gt_boxes.data)
+        deltas = box_utils.box_refinement(positive_rois, roi_gt_boxes)
         std_dev = torch.tensor(config.BBOX_STD_DEV).float()
         deltas /= std_dev
 
         # Assign positive ROIs to GT masks
-        roi_masks = gt_masks[roi_gt_box_assignment.data, :, :]
+        roi_masks = gt_masks[roi_gt_box_assignment, :, :]
 
         # Compute mask targets
         boxes = positive_rois
@@ -134,7 +153,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         rand_idx = rand_idx[:negative_count]
         negative_indices = negative_indices[rand_idx]
         negative_count = len(negative_indices)
-        negative_rois = proposals[negative_indices.data, :]
+        negative_rois = proposals[negative_indices, :]
     else:
         negative_count = 0
 
@@ -159,9 +178,12 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         zeros = torch.zeros(negative_count, config.MASK_SHAPE[0], config.MASK_SHAPE[1])
         masks = zeros
     else:
-        rois = torch.empty(0)
+        # needs to be right shape for stacking. others are cat.
+        rois = torch.empty(0, 4)
         roi_gt_class_ids = torch.empty(0)
         deltas = torch.empty(0)
         masks = torch.empty(0)
+
+    rois = pad(rois, config.TRAIN_ROIS_PER_IMAGE)
 
     return rois, roi_gt_class_ids, deltas, masks

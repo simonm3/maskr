@@ -43,3 +43,24 @@ GPU STILL HAS DIFFERENCES IN CONV
 #### logging/debugging
 tracker
 
+#todo detections
+#todo demo mold_image still numpy
+
+test on single image
+    inputs from dataset/dataload
+    targets - rpn, anchors, target masks and boxes
+    forward loss
+    check pre-step weights, grad
+    check post step weights
+test more images (as above)
+train convergence
+
+##### runs 10% faster on GPU - likely due to numpy=> pytorch
+##### similar accuracy. needs longer test run
+##### not tried fastai learner
+
+#### working on gpu with fastai learner.
+#### callbacks not working for showgraph. num_workers>0 fails
+#### fix batch size>1
+#### try keras??
+

@@ -11,7 +11,8 @@ from maskmm.utils import image_utils
 
 from maskmm.datagen.head_targets import build_head_targets
 from maskmm.filters.proposals import proposals
-from maskmm.filters.detections import filter_detections_batch
+from maskmm.filters.detections import filter_detections
+from maskmm.filters.roialign import roialign
 
 from .rpn import RPN
 from .resnet import ResNet
@@ -48,12 +49,11 @@ class MaskRCNN(nn.Module):
         # Build the shared convolutional layers.
         # Bottom-up Layers
         # Returns a list of the last layers of each stage, 5 in total.
-        # Don't create the thead (stage 5), so we pick the 4th item in the list.
+        # Don't create the head (stage 5), so we pick the 4th item in the list.
         resnet = ResNet("resnet101", stage5=True)
         C1, C2, C3, C4, C5 = resnet.stages()
 
         # Top-down Layers
-        # TODO: add assert to varify feature map sizes match what's in config
         self.fpn = FPN(C1, C2, C3, C4, C5, out_channels=256)
 
         # RPN
@@ -65,21 +65,12 @@ class MaskRCNN(nn.Module):
         # FPN Mask
         self.mask = Mask(256, config.MASK_POOL_SIZE, config.IMAGE_SHAPE, config.NUM_CLASSES)
 
-        # Fix batch norm layers
-        # todo is this needed as learner already sets eval mode?
-        def set_bn_fix(m):
-            classname = m.__class__.__name__
-            if classname.find('BatchNorm') != -1:
-                for p in m.parameters(): p.requires_grad = False
-
-        self.apply(set_bn_fix)
-
     def forward(self, *inputs):
         """ mode=training, validation, detection """
 
         # tgt_rpn_match and tgt_rpn_bbox not used but passed through because.....
-        # loss is calculated in callback to store results but this has single param output of this function.
-        # loss_func is not able to store intermediate results
+        # fastai loss is calculated in callback to store results but this has single param output of this function.
+        # fastai loss_func is not able to store intermediate results
         images, image_metas,\
         tgt_rpn_match, tgt_rpn_bbox, \
         gt_class_ids, gt_boxes, gt_masks = inputs
@@ -113,19 +104,15 @@ class MaskRCNN(nn.Module):
             else config.POST_NMS_ROIS_INFERENCE
         rpn_rois = proposals([rpn_class, rpn_bbox],
                              proposal_count=proposal_count,
-                             nms_threshold=config.RPN_NMS_THRESHOLD,
-                             anchors=config.ANCHORS,
                              config=config)
 
-        #if mode in ["training", "validation"]:
-            # generate head targets and balanced sample of positive/negative rois
-            # run classifier and mask headss
+        if not config.HEAD:
+            return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
+                             rpn_class_logits, rpn_bbox, 0,0,0,0,0,0])
 
         with torch.no_grad():
-            # Generate detection targets
-            # Subsamples proposals and generates target outputs for training
-            # Note that proposal class IDs, gt_boxes, and gt_masks are zero
-            # padded. Equally, returned rois and targets are zero padded.
+            # Subsample proposals and generate target outputs for training
+            # Note inputs and outputs are zero padded.
             rois, target_class_ids, target_deltas, target_mask = \
                 build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
 
@@ -135,16 +122,20 @@ class MaskRCNN(nn.Module):
             mrcnn_bbox = torch.empty(0)
             mrcnn_mask = torch.empty(0)
         else:
-            # Network Heads
-            mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(mrcnn_feature_maps, rois)
-            mrcnn_mask = self.mask(mrcnn_feature_maps, rois)
+            # roialign, merge batch dimension and run classifier head
+            x = roialign([rois] + mrcnn_feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
+            mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(x)
+
+            # roialign, merge batch dimension and run mask head
+            x = roialign([rois] + mrcnn_feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
+            mrcnn_mask = self.mask(x)
 
         return dict(out=[tgt_rpn_match, tgt_rpn_bbox,\
                         rpn_class_logits, rpn_bbox,\
                         target_class_ids, target_deltas, target_mask,\
                         mrcnn_class_logits, mrcnn_bbox, mrcnn_mask])
 
-
+        # todo detections
         """elif mode=="detection":
             # run classifier head
             # filter detections

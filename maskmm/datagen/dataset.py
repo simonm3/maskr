@@ -3,14 +3,13 @@ from skimage.io import imread
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-from maskmm.utils import box_utils, image_utils
+from maskmm.utils import box_utils, image_utils, utils
 from maskmm.datagen.rpn_targets import build_rpn_targets
 
 from maskmm.tracker import save, saveall
 
 import logging
 log = logging.getLogger()
-
 
 class Dataset(Dataset):
     """The base class for dataset classes.
@@ -35,6 +34,7 @@ class Dataset(Dataset):
         self.source_class_ids = {}
 
         self.augment = config.AUGMENT
+        self.count = 0
 
     def add_class(self, source, class_id, class_name):
         assert "." not in source, "Source name cannot contain a dot"
@@ -153,8 +153,10 @@ class Dataset(Dataset):
         class_ids = np.empty([0], np.int32)
         return mask, class_ids
 
+    @saveall
     def __getitem__(self, image_index):
         """ return image, rpn_targets and ground truth """
+
         image_id = self.image_ids[image_index]
         image, image_metas, gt_class_ids, gt_boxes, gt_masks = \
             self.load_image_gt(image_id, use_mini_mask=self.config.USE_MINI_MASK)
@@ -162,14 +164,6 @@ class Dataset(Dataset):
         # If no instances then skip. e.g. image has none of classes we care about.
         if gt_class_ids.eq(0).all():
             return None
-
-        # If too many instances than subsample.
-        if len(gt_boxes) > self.config.MAX_GT_INSTANCES:
-            ids = np.random.choice(
-                np.arange(gt_boxes.shape[0]), self.config.MAX_GT_INSTANCES, replace=False)
-            gt_class_ids = gt_class_ids[ids]
-            gt_boxes = gt_boxes[ids]
-            gt_masks = gt_masks[:, :, ids]
 
         # image and masks
         image = image_utils.mold_image(image, self.config)
@@ -204,8 +198,15 @@ class Dataset(Dataset):
         # Load image and mask
         image = self.load_image(image_id)
         mask, class_ids = self.load_mask(image_id)
-        class_ids = torch.tensor(class_ids).float()
+        class_ids = torch.tensor(class_ids, dtype=torch.float)
         shape = image.shape
+
+        # If too many instances than subsample.
+        if len(class_ids) > self.config.MAX_GT_INSTANCES:
+            ids = np.random.choice(
+                np.arange(len(class_ids)), self.config.MAX_GT_INSTANCES, replace=False)
+            class_ids = class_ids[ids]
+            mask = mask[:, :, ids]
 
         # resize image and mask
         image, window, scale, padding = image_utils.resize_image(image, self.config)
@@ -215,13 +216,13 @@ class Dataset(Dataset):
         if self.augment:
             image, mask = image_utils.augment(image, mask)
 
-        # Bounding boxes. some boxes might be all zeros if the corresponding mask got cropped out.
+        # Bounding boxes. some boxes might be all zeros if the corresponding mask got cropped out
         bbox = box_utils.extract_bboxes(mask)
 
         # compress masks to reduce memory usage
         if use_mini_mask:
             mask = image_utils.minimize_mask(bbox, mask, self.config.MINI_MASK_SHAPE)
-        mask = torch.tensor(mask.astype(int), dtype=torch.int32)
+        mask = torch.tensor(mask.astype(int))
         # make float to enable log function
         bbox = bbox.float()
 
@@ -230,5 +231,10 @@ class Dataset(Dataset):
         source_class_ids = self.source_class_ids[self.image_info[image_id]["source"]]
         active_class_ids[source_class_ids] = 1
         image_meta = image_utils.compose_image_meta(image_id, shape, window, active_class_ids)
+
+        # zeropad so dataloader can stack batch. rpn_match and rpn_bbox already padded
+        class_ids = utils.pad(class_ids, self.config.MAX_GT_INSTANCES)
+        bbox = utils.pad(bbox, self.config.MAX_GT_INSTANCES)
+        mask = utils.pad(mask, self.config.MAX_GT_INSTANCES, dim=2)
 
         return image, image_meta, class_ids, bbox, mask

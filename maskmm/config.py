@@ -25,10 +25,40 @@ class Config(object):
     sub-class that inherits from this one and override properties
     that need to be changed.
     """
+
+##### dataset ##################################################################
+
     # Name the configurations. For example, 'COCO', 'Experiment 3', ...etc.
     # Useful if your code needs to do things differently depending on which
     # experiment is running.
     NAME = "name?"  # Override in sub-classes
+
+    # Number of classification classes (including background)
+    NUM_CLASSES = 1  # Override in sub-classes
+
+    # If enabled, resizes instance masks to a smaller size to reduce
+    # memory load. Recommended when using high-resolution images.
+    USE_MINI_MASK = True
+    MINI_MASK_SHAPE = (56, 56)  # (height, width) of the mini-mask
+
+    # Input image resing
+    # Images are resized such that the smallest side is >= IMAGE_MIN_DIM and
+    # the longest side is <= IMAGE_MAX_DIM. In case both conditions can't
+    # be satisfied together the IMAGE_MAX_DIM is enforced.
+    IMAGE_MIN_DIM = 800
+    IMAGE_MAX_DIM = 1024
+    # If True, pad images with zeros such that they're (max_dim by max_dim)
+    IMAGE_PADDING = True  # currently, the False option is not supported
+
+    # Image mean (RGB)
+    MEAN_PIXEL = [123.7, 116.8, 103.9]
+
+    # Maximum number of ground truth instances to use in one image
+    MAX_GT_INSTANCES = 100
+
+    AUGMENT = False
+
+####### training ##################################################################
 
     # Path to pretrained imagenet model
     IMAGENET_MODEL_PATH = os.path.join(os.getcwd(), "resnet50_imagenet.pth")
@@ -42,6 +72,28 @@ class Config(object):
     # number that your GPU can handle for best performance.
     IMAGES_PER_GPU = 1
 
+    # Number of validation steps to run at the end of every training epoch.
+    # A bigger number improves accuracy of validation stats, but slows
+    # down the training.
+    VALIDATION_STEPS = 50
+
+    # Learning rate and momentum
+    # The Mask RCNN paper uses lr=0.02, but on TensorFlow it causes
+    # weights to explode. Likely due to differences in optimzer
+    # implementation.
+    LEARNING_RATE = 0.001
+    LEARNING_MOMENTUM = 0.9
+
+    # Weight decay regularization
+    WEIGHT_DECAY = 0.0001
+
+#### calculated
+
+    DEVICE = None
+    BATCH_SIZE = None
+    IMAGE_SHAPE = None
+    ANCHORS = None
+
     # Number of training steps per epoch
     # This doesn't need to match the size of the training set. Tensorboard
     # updates are saved at the end of each epoch, so setting this to a
@@ -51,17 +103,13 @@ class Config(object):
     # a lot of time on validation stats.
     STEPS_PER_EPOCH = 1000
 
-    # Number of validation steps to run at the end of every training epoch.
-    # A bigger number improves accuracy of validation stats, but slows
-    # down the training.
-    VALIDATION_STEPS = 50
+######### backbone ################################################################
 
     # The strides of each layer of the FPN Pyramid. These values
     # are based on a Resnet101 backbone.
     BACKBONE_STRIDES = [4, 8, 16, 32, 64]
 
-    # Number of classification classes (including background)
-    NUM_CLASSES = 1  # Override in sub-classes
+########## RPN ################################################################
 
     # Length of square anchor side in pixels
     RPN_ANCHOR_SCALES = (32, 64, 128, 256, 512)
@@ -86,23 +134,6 @@ class Config(object):
     POST_NMS_ROIS_TRAINING = 2000
     POST_NMS_ROIS_INFERENCE = 1000
 
-    # If enabled, resizes instance masks to a smaller size to reduce
-    # memory load. Recommended when using high-resolution images.
-    USE_MINI_MASK = True
-    MINI_MASK_SHAPE = (56, 56)  # (height, width) of the mini-mask
-
-    # Input image resing
-    # Images are resized such that the smallest side is >= IMAGE_MIN_DIM and
-    # the longest side is <= IMAGE_MAX_DIM. In case both conditions can't
-    # be satisfied together the IMAGE_MAX_DIM is enforced.
-    IMAGE_MIN_DIM = 800
-    IMAGE_MAX_DIM = 1024
-    # If True, pad images with zeros such that they're (max_dim by max_dim)
-    IMAGE_PADDING = True  # currently, the False option is not supported
-
-    # Image mean (RGB)
-    MEAN_PIXEL = [123.7, 116.8, 103.9]
-
     # Number of ROIs per image to feed to classifier/mask heads
     # The Mask RCNN paper uses 512 but often the RPN doesn't generate
     # enough positive proposals to fill this and keep a positive:negative
@@ -113,16 +144,19 @@ class Config(object):
     # Percent of positive ROIs used to train classifier/mask heads
     ROI_POSITIVE_RATIO = 0.33
 
+    # Bounding box refinement standard deviation for RPN
+    RPN_BBOX_STD_DEV = [0.1, 0.1, 0.2, 0.2]
+
+##### roialign ###########################################################################
+
     # Pooled ROIs
     POOL_SIZE = 7
     MASK_POOL_SIZE = 14
     MASK_SHAPE = [28, 28]
 
-    # Maximum number of ground truth instances to use in one image
-    MAX_GT_INSTANCES = 100
+#### detection #########################################################################
 
-    # Bounding box refinement standard deviation for RPN and final detections.
-    RPN_BBOX_STD_DEV = [0.1, 0.1, 0.2, 0.2]
+    # for final detections
     BBOX_STD_DEV = [0.1, 0.1, 0.2, 0.2]
 
     # Max number of final detections
@@ -135,15 +169,7 @@ class Config(object):
     # Non-maximum suppression threshold for detection
     DETECTION_NMS_THRESHOLD = 0.3
 
-    # Learning rate and momentum
-    # The Mask RCNN paper uses lr=0.02, but on TensorFlow it causes
-    # weights to explode. Likely due to differences in optimzer
-    # implementation.
-    LEARNING_RATE = 0.001
-    LEARNING_MOMENTUM = 0.9
-
-    # Weight decay regularization
-    WEIGHT_DECAY = 0.0001
+#### development and debugging ##############################################################
 
     # Use RPN ROIs or externally generated ROIs for training
     # Keep this True for most situations. Set to False if you want to train
@@ -152,8 +178,15 @@ class Config(object):
     # train the RPN.
     USE_RPN_ROIS = True
 
-    # set to True to use numpy random numbers to compare against numpy version
+    # set to True then tries to stay compatible with original for comparison
+    # numpy random numbers, batchnorm eval etc..
+    # NOTE GPU convolutions do not produce consistent results on same input.
     COMPAT = False
+
+    # if false then run rpn only
+    HEAD = True
+
+############################################################################################
 
     def __init__(self):
         """Set values of computed attributes."""

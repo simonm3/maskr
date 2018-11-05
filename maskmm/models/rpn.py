@@ -4,6 +4,7 @@
 
 import torch.nn as nn
 from .samepad2d import SamePad2d
+from maskmm.tracker import save
 import logging
 log = logging.getLogger()
 
@@ -48,7 +49,6 @@ class RPN(nn.Module):
 
         # Softmax on last dimension of BG/FG.
         rpn_probs = self.softmax(rpn_class_logits)
-
         # Bounding box refinement. [batch, H, W, anchors per location, depth]
         # where depth is [x, y, log(w), log(h)]
         rpn_bbox = self.conv_bbox(x)
@@ -58,4 +58,4 @@ class RPN(nn.Module):
         rpn_bbox = rpn_bbox.contiguous()
         rpn_bbox = rpn_bbox.view(x.size()[0], -1, 4)
 
-        return [rpn_class_logits, rpn_probs, rpn_bbox]
+        return rpn_class_logits, rpn_probs, rpn_bbox

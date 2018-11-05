@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+import logging
+log = logging.getLogger()
 
 def apply_box_deltas(boxes, deltas):
     """Applies the given deltas to the given boxes.
