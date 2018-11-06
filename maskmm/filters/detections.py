@@ -26,7 +26,7 @@ def intersect1d(tensor1, tensor2):
 
 ###############################################
 
-def filter_detections(rois, probs, deltas, window, config):
+def filter_detections(rois, probs, deltas, masks, window, config):
     """Refine classified proposals and filter overlaps and return final
     detections.
 
@@ -40,7 +40,6 @@ def filter_detections(rois, probs, deltas, window, config):
 
     Returns detections shaped: [N, (y1, x1, y2, x2, class_id, score)]
     """
-
     # Class IDs per ROI
     _, class_ids = torch.max(probs, dim=1)
 
@@ -49,6 +48,7 @@ def filter_detections(rois, probs, deltas, window, config):
     idx = torch.arange(len(class_ids), dtype=torch.long)
     class_scores = probs[idx, class_ids]
     deltas_specific = deltas[idx, class_ids]
+    masks = masks[idx, class_ids]
 
     # Apply bounding box deltas
     # Shape: [boxes, (y1, x1, y2, x2)] in normalized coordinates
@@ -76,6 +76,7 @@ def filter_detections(rois, probs, deltas, window, config):
     keep = torch.nonzero(keep_bool)[:, 0]
 
     # Apply per-class NMS
+    # todo remove???
     pre_nms_class_ids = class_ids[keep]
     pre_nms_scores = class_scores[keep]
     pre_nms_rois = refined_rois[keep]
@@ -99,17 +100,15 @@ def filter_detections(rois, probs, deltas, window, config):
             nms_keep = class_keep
         else:
             nms_keep = unique1d(torch.cat((nms_keep, class_keep)))
-    keep = intersect1d(keep, nms_keep)
+    #keep = intersect1d(keep, nms_keep)
 
     # Keep top detections
-    roi_count = config.DETECTION_MAX_INSTANCES
-    top_ids = class_scores[keep].sort(descending=True)[1][:roi_count]
+    top_ids = class_scores[keep].sort(descending=True)[1][:config.DETECTION_MAX_INSTANCES]
     keep = keep[top_ids]
 
-    # Arrange output as [N, (y1, x1, y2, x2, class_id, score)]
-    # Coordinates are in image domain.
-    result = torch.cat((refined_rois[keep],
-                        class_ids[keep].unsqueeze(1).float(),
-                        class_scores[keep].unsqueeze(1)), dim=1)
+    refined_rois = refined_rois[keep]
+    class_ids = class_ids[keep]
+    class_scores = class_scores[keep]
+    masks = masks[keep]
 
-    return result
+    return refined_rois, class_ids, class_scores, masks

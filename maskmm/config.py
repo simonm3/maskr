@@ -10,6 +10,7 @@ Written by Waleed Abdulla
 import math
 import numpy as np
 import os
+from os.path import join
 import torch
 from maskmm.datagen.anchors import generate_pyramid_anchors
 import logging
@@ -60,8 +61,9 @@ class Config(object):
 
 ####### training ##################################################################
 
-    # Path to pretrained imagenet model
-    IMAGENET_MODEL_PATH = os.path.join(os.getcwd(), "resnet50_imagenet.pth")
+    # names of weight files
+    IMAGENET_MODEL_WEIGHTS = "resnet50_imagenet.pth"
+    COCO_MODEL_WEIGHTS = "mask_rcnn_coco.pth"
 
     # NUMBER OF GPUs to use. For CPU use 0
     GPU_COUNT = torch.cuda.device_count()
@@ -190,6 +192,12 @@ class Config(object):
 
     def __init__(self):
         """Set values of computed attributes."""
+
+        # default weights is pretrained coco
+        self.WEIGHTS = os.path.abspath(join(os.path.dirname(__file__),
+                                       os.pardir, "data/models",
+                                       self.COCO_MODEL_WEIGHTS))
+
         # Effective batch size
         if self.GPU_COUNT > 0:
             self.DEVICE = torch.device("cuda")

@@ -79,8 +79,8 @@ class Tracker:
             self.basepath = join(trackpath, basename)
 
         self.enabled = enabled
-        self.exclude_funcs = exclude_funcs or []
-        self.exclude_vars = exclude_vars or []
+        self.exclude_funcs = exclude_funcs or ()
+        self.exclude_vars = exclude_vars or ()
         self.tolerance = tolerance
         self.log_save = log_save
         self.log_type = log_type

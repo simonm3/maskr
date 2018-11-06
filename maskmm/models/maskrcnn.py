@@ -66,7 +66,7 @@ class MaskRCNN(nn.Module):
         self.mask = Mask(256, config.MASK_POOL_SIZE, config.IMAGE_SHAPE, config.NUM_CLASSES)
 
     def forward(self, *inputs):
-        targets = len(inputs)>2
+        targets = len(inputs)>1
 
         if targets:
             # training/validation mode. inputs from dataloader/dataset
@@ -77,7 +77,7 @@ class MaskRCNN(nn.Module):
             tgt_rpn_match, tgt_rpn_bbox, \
             gt_class_ids, gt_boxes, gt_masks = inputs
         else:
-            images, image_metas = inputs
+            images = inputs[0]
 
         config = self.config
 
@@ -120,6 +120,8 @@ class MaskRCNN(nn.Module):
                 # Note inputs and outputs are zero padded.
                 rois, target_class_ids, target_deltas, target_mask = \
                     build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
+        else:
+            rois = rpn_rois
 
         if len(rois) == 0:
             mrcnn_class_logits = torch.empty(0)
@@ -141,21 +143,30 @@ class MaskRCNN(nn.Module):
                              target_class_ids, target_deltas, target_mask,\
                              mrcnn_class_logits, mrcnn_bbox, mrcnn_mask])
         else:
-            return mrcnn_probs, mrcnn_bbox, mrcnn_mask
+            # remove batch dimension for rois
+            rois = rois.squeeze(0)
+            return rois, mrcnn_probs, mrcnn_bbox, mrcnn_mask
 
     def predict(self, image):
         """ predict list of images without targets, bypassing dataset """
-
+        # todo filter during training?? is there a layer missing before mask?
         # todo extend to multiple images
         # mold image
         image_shape = image.shape
         image, window, scale, padding = image_utils.resize_image(image, self.config)
         image = image_utils.mold_image(image, self.config)
 
-        # predict
-        class_probs, boxes, masks = self(image)
-        class_probs = class_probs.cpu().numpy()
+         # predict
+        with torch.no_grad():
+            rois, class_probs, deltas, masks = self(image.unsqueeze(0))
+
+        # filter and create boxes
+        boxes, class_ids, class_scores, masks = filter_detections(rois, class_probs, deltas, masks, window, self.config)
+
+        # todo remove??
         boxes = boxes.cpu().numpy()
+        class_ids = class_ids.cpu().numpy()
+        class_scores = class_scores.cpu().numpy()
         masks = masks.cpu().numpy()
 
         # unmold boxes
@@ -167,28 +178,15 @@ class MaskRCNN(nn.Module):
         shifts = np.array([shift[0], shift[1], shift[0], shift[1]])
         boxes = np.multiply(boxes - shifts, scales).astype(np.int32)
 
-        # Filter out detections with zero area. Often only happens in early
-        # stages of training when the network weights are still a bit random.
-        exclude_ix = np.where(
-            (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1]) <= 0)[0]
-        if exclude_ix.shape[0] > 0:
-            class_probs = np.delete(class_probs, exclude_ix, axis=0)
-            boxes = np.delete(boxes, exclude_ix, axis=0)
-            masks = np.delete(masks, exclude_ix, axis=0)
-            N = class_probs.shape[0]
-
         # Resize masks to original image size and set boundary threshold.
         full_masks = []
-        for i in range(N):
+        for i in range(len(masks)):
             # Convert neural network mask to full size mask
             full_mask = image_utils.unmold_mask(masks[i], boxes[i], image_shape)
             full_masks.append(full_mask)
-            full_masks = np.stack(full_masks, axis=-1) \
-            if full_masks else np.empty((0,) + masks.shape[1:3])
+        full_masks = np.stack(full_masks, axis=-1) if full_masks else np.empty((0,) + masks.shape[1:3])
 
-        class_ids = np.argmax(class_probs, axis=1)
-
-        return class_ids, class_probs, boxes, full_masks
+        return class_ids, class_scores, boxes, full_masks
 
     def initialize_weights(self):
         """Initialize model weights.
@@ -295,41 +293,3 @@ class MaskRCNN(nn.Module):
         self.set_log_dir(filepath)
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
-
-    def detect(self, images):
-        """Runs the detection pipeline (on list of images rather than a dataset)
-
-        images: List of images, potentially of different sizes.
-
-        Returns a list of dicts, one dict per image. The dict contains:
-        rois: [N, (y1, x1, y2, x2)] detection bounding boxes
-        class_ids: [N] int class IDs
-        scores: [N] float probability scores for the class IDs
-        masks: [H, W, N] instance binary masks
-        """
-        config = self.config
-        self.eval()
-        with torch.no_grad():
-            # Mold inputs to format expected by the neural network
-            molded_images, image_metas, windows = image_utils.mold_inputs(images, config)
-
-            # Run object detection
-            detections, mrcnn_mask = self([molded_images, image_metas], mode="detection")
-
-            # Convert to numpy
-            detections = detections.cpu().numpy()
-            mrcnn_mask = mrcnn_mask.permute(0, 1, 3, 4, 2).cpu().numpy()
-
-            # Process detections
-            results = []
-            for i, image in enumerate(images):
-                final_rois, final_class_ids, final_scores, final_masks = \
-                    image_utils.unmold_detections(detections[i], mrcnn_mask[i],
-                                                  image.shape, windows[i])
-                results.append({
-                    "rois": final_rois,
-                    "class_ids": final_class_ids,
-                    "scores": final_scores,
-                    "masks": final_masks,
-                })
-            return results
