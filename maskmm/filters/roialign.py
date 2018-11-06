@@ -97,4 +97,4 @@ def roialign(inputs, pool_size, image_shape):
     _, box_to_level = torch.sort(box_to_level)
     pooled = pooled[box_to_level, :, :]
 
-    return [pooled]
+    return pooled

@@ -66,14 +66,18 @@ class MaskRCNN(nn.Module):
         self.mask = Mask(256, config.MASK_POOL_SIZE, config.IMAGE_SHAPE, config.NUM_CLASSES)
 
     def forward(self, *inputs):
-        """ mode=training, validation, detection """
+        targets = len(inputs)>2
 
-        # tgt_rpn_match and tgt_rpn_bbox not used but passed through because.....
-        # fastai loss is calculated in callback to store results but this has single param output of this function.
-        # fastai loss_func is not able to store intermediate results
-        images, image_metas,\
-        tgt_rpn_match, tgt_rpn_bbox, \
-        gt_class_ids, gt_boxes, gt_masks = inputs
+        if targets:
+            # training/validation mode. inputs from dataloader/dataset
+            # tgt_rpn_match and tgt_rpn_bbox not used but passed through because.....
+            # fastai loss is calculated in callback to store results but this has single param output of this function.
+            # fastai loss_func is not able to store intermediate results
+            images, image_metas,\
+            tgt_rpn_match, tgt_rpn_bbox, \
+            gt_class_ids, gt_boxes, gt_masks = inputs
+        else:
+            images, image_metas = inputs
 
         config = self.config
 
@@ -110,63 +114,82 @@ class MaskRCNN(nn.Module):
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                              rpn_class_logits, rpn_bbox, 0,0,0,0,0,0])
 
-        with torch.no_grad():
-            # Subsample proposals and generate target outputs for training
-            # Note inputs and outputs are zero padded.
-            rois, target_class_ids, target_deltas, target_mask = \
-                build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
+        if targets:
+            with torch.no_grad():
+                # Subsample proposals and generate target outputs for training
+                # Note inputs and outputs are zero padded.
+                rois, target_class_ids, target_deltas, target_mask = \
+                    build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
 
         if len(rois) == 0:
             mrcnn_class_logits = torch.empty(0)
-            mrcnn_class = torch.empty(0).int()
+            mrcnn_probs = torch.empty(0).int()
             mrcnn_bbox = torch.empty(0)
             mrcnn_mask = torch.empty(0)
         else:
             # roialign, merge batch dimension and run classifier head
             x = roialign([rois] + mrcnn_feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
-            mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(x)
+            mrcnn_class_logits, mrcnn_probs, mrcnn_bbox = self.classifier(x)
 
             # roialign, merge batch dimension and run mask head
             x = roialign([rois] + mrcnn_feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
             mrcnn_mask = self.mask(x)
 
-        return dict(out=[tgt_rpn_match, tgt_rpn_bbox,\
-                        rpn_class_logits, rpn_bbox,\
-                        target_class_ids, target_deltas, target_mask,\
-                        mrcnn_class_logits, mrcnn_bbox, mrcnn_mask])
-
-        # todo detections
-        """elif mode=="detection":
-            # run classifier head
-            # filter detections
-            # run mask head
-            mrcnn_class_logits, mrcnn_class, mrcnn_bbox = self.classifier(mrcnn_feature_maps, rpn_rois)
-
-            with torch.no_grad():
-                # Detections
-                # output is [batch, num_detections, (y1, x1, y2, x2, class_id, score)] in image coordinates
-                detections = filter_detections_batch(config, rpn_rois, mrcnn_class, mrcnn_bbox, image_metas)
-
-                # Convert boxes to normalized coordinates
-                # TODO: let DetectionLayer return normalized coordinates to avoid unnecessary conversions
-                h, w = config.IMAGE_SHAPE[:2]
-                scale = torch.tensor([h, w, h, w], dtype=torch.float)
-                detection_boxes = detections[:, :4] / scale
-
-                # Add back batch dimension
-                detection_boxes = detection_boxes.unsqueeze(0)
-
-            # Create masks for detections
-            mrcnn_mask = self.mask(mrcnn_feature_maps, detection_boxes)
-
-            # Add back batch dimension
-            detections = detections.unsqueeze(0)
-            mrcnn_mask = mrcnn_mask.unsqueeze(0)
-
-            return [detections, mrcnn_mask]
+        if targets:
+            return dict(out=[tgt_rpn_match, tgt_rpn_bbox,\
+                             rpn_class_logits, rpn_bbox,\
+                             target_class_ids, target_deltas, target_mask,\
+                             mrcnn_class_logits, mrcnn_bbox, mrcnn_mask])
         else:
-            raise Exception("invalid mode. must be training/validation/detection")
-        """
+            return mrcnn_probs, mrcnn_bbox, mrcnn_mask
+
+    def predict(self, image):
+        """ predict list of images without targets, bypassing dataset """
+
+        # todo extend to multiple images
+        # mold image
+        image_shape = image.shape
+        image, window, scale, padding = image_utils.resize_image(image, self.config)
+        image = image_utils.mold_image(image, self.config)
+
+        # predict
+        class_probs, boxes, masks = self(image)
+        class_probs = class_probs.cpu().numpy()
+        boxes = boxes.cpu().numpy()
+        masks = masks.cpu().numpy()
+
+        # unmold boxes
+        h_scale = image_shape[0] / (window[2] - window[0])
+        w_scale = image_shape[1] / (window[3] - window[1])
+        scale = min(h_scale, w_scale)
+        shift = window[:2]  # y, x
+        scales = np.array([scale, scale, scale, scale])
+        shifts = np.array([shift[0], shift[1], shift[0], shift[1]])
+        boxes = np.multiply(boxes - shifts, scales).astype(np.int32)
+
+        # Filter out detections with zero area. Often only happens in early
+        # stages of training when the network weights are still a bit random.
+        exclude_ix = np.where(
+            (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1]) <= 0)[0]
+        if exclude_ix.shape[0] > 0:
+            class_probs = np.delete(class_probs, exclude_ix, axis=0)
+            boxes = np.delete(boxes, exclude_ix, axis=0)
+            masks = np.delete(masks, exclude_ix, axis=0)
+            N = class_probs.shape[0]
+
+        # Resize masks to original image size and set boundary threshold.
+        full_masks = []
+        for i in range(N):
+            # Convert neural network mask to full size mask
+            full_mask = image_utils.unmold_mask(masks[i], boxes[i], image_shape)
+            full_masks.append(full_mask)
+            full_masks = np.stack(full_masks, axis=-1) \
+            if full_masks else np.empty((0,) + masks.shape[1:3])
+
+        class_ids = np.argmax(class_probs, axis=1)
+
+        return class_ids, class_probs, boxes, full_masks
+
     def initialize_weights(self):
         """Initialize model weights.
         """
