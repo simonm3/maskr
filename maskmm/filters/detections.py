@@ -1,6 +1,6 @@
 
 import torch
-from maskmm.utils import utils, box_utils
+from maskmm.utils import batch, box_utils
 from maskmm.lib.nms.nms_wrapper import nms
 import numpy as np
 
@@ -27,7 +27,7 @@ def intersect1d(tensor1, tensor2):
 
 ###############################################
 
-@utils.batch_slice()
+@batch.batch_slice()
 def get_detections(inputs, config):
     """Refine classified proposals and filter overlaps and return final
     detections.

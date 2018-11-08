@@ -3,7 +3,7 @@ from skimage.io import imread
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-from maskmm.utils import box_utils, image_utils, utils
+from maskmm.utils import box_utils, image_utils, batch
 from maskmm.datagen.rpn_targets import build_rpn_targets
 
 from maskmm.tracker import save, saveall
@@ -228,9 +228,10 @@ class Dataset(Dataset):
         # convert [h,w,N] to [N,h,w] to align with other inputs having N first
         mask = mask.permute(2, 0, 1).float()
 
+        # todo move to dataloader and use pad_length
         # zeropad so dataloader can stack batch. rpn_match and rpn_bbox already padded
-        class_ids = utils.pad(class_ids, self.config.MAX_GT_INSTANCES)
-        bbox = utils.pad(bbox, self.config.MAX_GT_INSTANCES)
-        mask = utils.pad(mask, self.config.MAX_GT_INSTANCES)
+        class_ids = batch.pad(class_ids, self.config.MAX_GT_INSTANCES)
+        bbox = batch.pad(bbox, self.config.MAX_GT_INSTANCES)
+        mask = batch.pad(mask, self.config.MAX_GT_INSTANCES)
 
         return image, image_meta, class_ids, bbox, mask

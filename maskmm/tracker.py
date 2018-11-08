@@ -55,7 +55,7 @@ class Tracker:
     """
     def __init__(self,
                  name,
-                 enabled=True,
+                 enabled=False,
                  exclude_funcs=None,
                  exclude_vars=None,
                  basename=None,

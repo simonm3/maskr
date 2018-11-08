@@ -1,15 +1,14 @@
 import torch
 from maskmm.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
-from maskmm.utils import box_utils, utils
-import numpy as np
+from maskmm.utils import box_utils
 from maskmm.tracker import save, saveall
-from maskmm.utils.utils import batch_slice, pad
+from maskmm.utils.batch import batch_slice
 
 import logging
 log = logging.getLogger()
 
-@saveall
-def build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config):
+@batch_slice()
+def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     """ Subsamples proposals and generates target box refinment, class_ids,
     and masks for each.
 
@@ -33,25 +32,6 @@ def build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config):
                  Masks cropped to bbox boundaries and resized to neural
                  network output size.
     """
-    head_targets = []
-    for i in range(len(rpn_rois)):
-        head_targets_item = build_head_targets_item(
-            rpn_rois[i], gt_class_ids[i], gt_boxes[i], gt_masks[i], config)
-        head_targets.append(head_targets_item)
-
-    # convert to [rois, roi_gt_class_ids, deltas, masks]
-    # stack rois as need separate images for roialign
-    res = list(zip(*head_targets))
-    res = [torch.stack(res[0])]+[torch.cat(r) for r in res[1:]]
-
-    return res
-
-def build_head_targets_item(proposals, gt_class_ids, gt_boxes, gt_masks, config):
-
-    # strip the zero padding
-    proposals = utils.unpad(proposals)
-    gt_class_ids, gt_boxes, gt_masks = utils.unpad(gt_class_ids, gt_boxes, gt_masks)
-
     # Normalize coordinates
     h, w = config.IMAGE_SHAPE[:2]
     scale = torch.tensor([h, w, h, w]).float()
@@ -178,7 +158,5 @@ def build_head_targets_item(proposals, gt_class_ids, gt_boxes, gt_masks, config)
         roi_gt_class_ids = torch.empty(0)
         deltas = torch.empty(0)
         masks = torch.empty(0)
-
-    rois = pad(rois, config.TRAIN_ROIS_PER_IMAGE)
 
     return rois, roi_gt_class_ids, deltas, masks

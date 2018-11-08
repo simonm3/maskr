@@ -1,10 +1,10 @@
 import torch
 from maskmm.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
-from maskmm.utils import utils
+from maskmm.utils import batch
 import logging
 log = logging.getLogger()
 
-@utils.batch_slice(unpadding=0)
+@batch.batch_slice(in_pad=0)
 def roialign(inputs, pool_size, image_shape):
     """Implements ROI Pooling on multiple levels of the feature pyramid.
 

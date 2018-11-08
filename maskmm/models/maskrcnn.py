@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.utils.data
 
-from maskmm.utils import image_utils, utils
+from maskmm.utils import image_utils, batch
 
 from maskmm.datagen.head_targets import build_head_targets
 from maskmm.filters.proposals import proposals
@@ -53,16 +53,16 @@ class MaskRCNN(nn.Module):
         resnet = ResNet("resnet101", stage5=True)
         C1, C2, C3, C4, C5 = resnet.stages()
 
-        # Top-down Layers
+        # backbone
         self.fpn = FPN(C1, C2, C3, C4, C5, out_channels=256)
 
         # RPN
         self.rpn = RPN(len(config.RPN_ANCHOR_RATIOS), config.RPN_ANCHOR_STRIDE, 256)
 
-        # FPN Classifier
+        # head Classifier
         self.classifier = Classifier(256, config.POOL_SIZE, config.IMAGE_SHAPE, config.NUM_CLASSES)
 
-        # FPN Mask
+        # head Mask
         self.mask = Mask(256, config.MASK_POOL_SIZE, config.IMAGE_SHAPE, config.NUM_CLASSES)
 
     def forward(self, *inputs):
@@ -127,6 +127,11 @@ class MaskRCNN(nn.Module):
                 # output rois are stacked; rest are concatenated
                 rois, target_class_ids, target_deltas, target_mask = \
                     build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
+
+                # todo remove?
+                target_class_ids = torch.cat(target_class_ids)
+                target_deltas = torch.cat(target_deltas)
+                target_mask = torch.cat(target_mask)
         else:
             rois = rpn_rois
 
@@ -146,7 +151,7 @@ class MaskRCNN(nn.Module):
             x = roialign([rois] + mrcnn_feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
 
             # mask head. batch_size=len(rois) with all images combined.
-            x = utils.unpad(x)
+            x = batch.unpad_length(x)
             mrcnn_mask = self.mask(x)
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                              rpn_class_logits, rpn_bbox, \
@@ -154,10 +159,7 @@ class MaskRCNN(nn.Module):
                              mrcnn_class_logits, mrcnn_deltas, mrcnn_mask])
         else:
             # for detection need each image separate so batch_slice
-            log.info("*********************************************")
-            log.info(x.shape)
-            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = utils.batch_slice()(self.classifier)(x)
-            log.info("*********************************************")
+            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch.batch_slice()(self.classifier)(x)
 
             # detections filter
             detections, rois = get_detections([rois, mrcnn_probs, mrcnn_deltas, image_metas], config)
@@ -165,23 +167,23 @@ class MaskRCNN(nn.Module):
             #detections=>todo boxes, class_ids, scores
 
             # Create masks for each image
+            # todo adapt mask to only create single mask for the top class
             x = roialign([rois] + mrcnn_feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
-            mrcnn_mask = utils.batch_slice()(self.mask)(x)
+            mrcnn_mask = batch.batch_slice()(self.mask)(x)
 
             return detections, mrcnn_mask
 
-    def predict(self, inputs):
+    def predict(self, images):
         # predict list of images without targets, bypassing dataset
         # todo filter during training?? is there a layer missing before mask?
-        # todo extend to multiple images
-        if not isinstance(inputs, list):
-            inputs = [inputs]
+        if not isinstance(images, list):
+            images = [images]
 
         # format inputs as dataset would
         images = []
         image_shapes = []
         image_metas = []
-        for image in inputs:
+        for image in images:
             image_shapes.append(image.shape)
             image, window, scale, padding = image_utils.resize_image(image, self.config)
             image = image_utils.mold_image(image, self.config)
@@ -195,19 +197,17 @@ class MaskRCNN(nn.Module):
         with torch.no_grad():
             detections, mrcnn_mask = self(images, image_metas)
 
-        log.info([x.shape for x in detections])
-        log.info(mrcnn_mask.shape)
-
         detections = detections.cpu().numpy()
         mrcnn_mask = mrcnn_mask.permute(0, 1, 3, 4, 2).data.cpu().numpy()
         image_metas = [image_utils.unmold_meta(m) for m in image_metas]
 
         # Process detections
+        results = []
         for i, image in enumerate(images):
-            final_rois, final_class_ids, final_scores, final_masks = \
-                image_utils.unmold_detections(detections[i], mrcnn_mask[i],
-                                       image_shapes[i], image_metas[i]["window"])
-        return final_rois, final_class_ids, final_scores, final_masks
+            res = image_utils.unmold_detections(detections[i], mrcnn_mask[i],
+                                    image_shapes[i], image_metas[i]["window"])
+            results.append(res)
+        return results
 
     def initialize_weights(self):
         """Initialize model weights.
