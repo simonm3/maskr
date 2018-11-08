@@ -8,35 +8,12 @@ log = logging.getLogger()
 import warnings
 warnings.filterwarnings('ignore', '.*output shape of zoom.*')
 
-def compose_image_meta(image_id, image_shape, window, active_class_ids):
-    """Takes attributes of an image and puts them in one 1D array. Use
-    parse_image_meta() to parse the values back.
+def mold_meta(meta):
+    return torch.tensor(list(meta.values()))
 
-    image_id: An int ID of the image. Useful for debugging.
-    image_shape: [height, width, channels]
-    window: (y1, x1, y2, x2) in pixels. The area of the image where the real
-            image is (excluding the padding)
-    active_class_ids: List of class_ids available in the dataset from which
-        the image came. Useful if training on images from multiple datasets
-        where not all classes are present in all datasets.
-    """
-    meta = np.array(
-        [image_id] +            # size=1
-        list(image_shape) +     # size=3
-        list(window) +          # size=4 (y1, x1, y2, x2) in image cooredinates
-        list(active_class_ids)  # size=num_classes
-    )
-    return torch.tensor(meta).float()
-
-def parse_image_meta(meta):
-    """Parses an image info Numpy array to its components.
-    See compose_image_meta() for more details.
-    """
-    image_id = meta[:, 0]
-    image_shape = meta[:, 1:4]
-    window = meta[:, 4:8]   # (y1, x1, y2, x2) window of image in in pixels
-    active_class_ids = meta[:, 8:]
-    return image_id, image_shape, window, active_class_ids
+def unmold_meta(meta):
+    meta = list(meta.cpu().numpy())
+    return dict(window=meta[0])
 
 def mold_image(image, config):
     """ Prepares RGB image with 0-255 values for input to model

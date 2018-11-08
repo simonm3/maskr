@@ -165,9 +165,8 @@ class Dataset(Dataset):
         if gt_class_ids.eq(0).all():
             return None
 
-        # image and masks
+        # image
         image = image_utils.mold_image(image, self.config)
-        gt_masks = gt_masks.permute(2, 0, 1).float()
 
         # rpn_targets
         rpn_match, rpn_bbox = build_rpn_targets(self.config.ANCHORS, gt_class_ids, gt_boxes, self.config)
@@ -199,7 +198,6 @@ class Dataset(Dataset):
         image = self.load_image(image_id)
         mask, class_ids = self.load_mask(image_id)
         class_ids = torch.tensor(class_ids, dtype=torch.float)
-        shape = image.shape
 
         # If too many instances than subsample.
         if len(class_ids) > self.config.MAX_GT_INSTANCES:
@@ -208,9 +206,10 @@ class Dataset(Dataset):
             class_ids = class_ids[ids]
             mask = mask[:, :, ids]
 
-        # resize image and mask
+        # resize image and mask [h,w,N]
         image, window, scale, padding = image_utils.resize_image(image, self.config)
         mask = image_utils.resize_mask(mask, scale, padding)
+        image_meta = image_utils.mold_meta(dict(window=window))
 
         # augment image and mask
         if self.augment:
@@ -226,15 +225,12 @@ class Dataset(Dataset):
         # make float to enable log function
         bbox = bbox.float()
 
-        # Active classes are those active in this dataset.
-        active_class_ids = np.zeros([self.num_classes])
-        source_class_ids = self.source_class_ids[self.image_info[image_id]["source"]]
-        active_class_ids[source_class_ids] = 1
-        image_meta = image_utils.compose_image_meta(image_id, shape, window, active_class_ids)
+        # convert [h,w,N] to [N,h,w] to align with other inputs having N first
+        mask = mask.permute(2, 0, 1).float()
 
         # zeropad so dataloader can stack batch. rpn_match and rpn_bbox already padded
         class_ids = utils.pad(class_ids, self.config.MAX_GT_INSTANCES)
         bbox = utils.pad(bbox, self.config.MAX_GT_INSTANCES)
-        mask = utils.pad(mask, self.config.MAX_GT_INSTANCES, dim=2)
+        mask = utils.pad(mask, self.config.MAX_GT_INSTANCES)
 
         return image, image_meta, class_ids, bbox, mask

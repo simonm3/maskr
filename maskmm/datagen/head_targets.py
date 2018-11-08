@@ -40,7 +40,7 @@ def build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config):
         head_targets.append(head_targets_item)
 
     # convert to [rois, roi_gt_class_ids, deltas, masks]
-    # stack rois as need batches for roialign
+    # stack rois as need separate images for roialign
     res = list(zip(*head_targets))
     res = [torch.stack(res[0])]+[torch.cat(r) for r in res[1:]]
 
@@ -49,13 +49,8 @@ def build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config):
 def build_head_targets_item(proposals, gt_class_ids, gt_boxes, gt_masks, config):
 
     # strip the zero padding
-    ids = proposals.ne(0).any(dim=1).nonzero().squeeze(-1)
-    proposals = proposals[ids]
-
-    ids = gt_boxes.ne(0).any(dim=1).nonzero().squeeze(-1)
-    gt_class_ids = gt_class_ids[ids]
-    gt_boxes = gt_boxes[ids]
-    gt_masks = gt_masks[ids]
+    proposals = utils.unpad(proposals)
+    gt_class_ids, gt_boxes, gt_masks = utils.unpad(gt_class_ids, gt_boxes, gt_masks)
 
     # Normalize coordinates
     h, w = config.IMAGE_SHAPE[:2]
