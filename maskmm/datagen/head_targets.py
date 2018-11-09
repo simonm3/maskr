@@ -8,7 +8,7 @@ import logging
 log = logging.getLogger()
 
 @batch_slice()
-def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
+def build_head_targets(inputs, config):
     """ Subsamples proposals and generates target box refinment, class_ids,
     and masks for each.
 
@@ -32,6 +32,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
                  Masks cropped to bbox boundaries and resized to neural
                  network output size.
     """
+    proposals, gt_class_ids, gt_boxes, gt_masks = inputs
     # Normalize coordinates
     h, w = config.IMAGE_SHAPE[:2]
     scale = torch.tensor([h, w, h, w]).float()

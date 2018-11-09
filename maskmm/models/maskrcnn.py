@@ -125,13 +125,9 @@ class MaskRCNN(nn.Module):
                 # Subsample proposals, generate target outputs for training and filter rois
                 # inputs are zero padded.
                 # output rois are stacked; rest are concatenated
-                rois, target_class_ids, target_deltas, target_mask = \
-                    build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
 
-                # todo remove?
-                target_class_ids = torch.cat(target_class_ids)
-                target_deltas = torch.cat(target_deltas)
-                target_mask = torch.cat(target_mask)
+                rois, target_class_ids, target_deltas, target_mask = \
+                    build_head_targets([rpn_rois, gt_class_ids, gt_boxes, gt_masks], config)
         else:
             rois = rpn_rois
 
@@ -140,19 +136,12 @@ class MaskRCNN(nn.Module):
         x = roialign([rois] + mrcnn_feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
 
         if targets:
-            # combine batch / n_rois
-            # todo why not just keep batch dimension and slice like for prediction?
-            x = x.reshape(-1, x.shape[2:])
-
-            # classifier head. batch_size=len(rois) with all images combined.
-            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = self.classifier(x)
+            # todo testing as detection
+            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch.batch_slice()(self.classifier)(x)
 
             # mask roialign
             x = roialign([rois] + mrcnn_feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
-
-            # mask head. batch_size=len(rois) with all images combined.
-            x = batch.unpad_length(x)
-            mrcnn_mask = self.mask(x)
+            mrcnn_mask = batch.batch_slice()(self.mask)(x)
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                              rpn_class_logits, rpn_bbox, \
                              target_class_ids, target_deltas, target_mask, \

@@ -8,6 +8,8 @@ def pad(x, shape):
     """ pad tensor to target shape
     if any dimensions of shape are less than x.shape then these are ignored
     """
+    if isinstance(shape, int):
+        shape = [shape, *x.shape[1:]]
     if len(x.shape)!=len(shape):
         raise Exception("x and shape must have same number of dimensions")
     padding = [max(0, t-x) for t,x in zip(shape, x.shape)]
@@ -39,7 +41,6 @@ def unpad_length(inputs):
 
     # strip zeros
     inputs = [i[ix] for i in inputs]
-
     inputs = inputs[0] if len(inputs)==1 else inputs
     return inputs
 
