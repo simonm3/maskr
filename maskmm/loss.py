@@ -1,13 +1,9 @@
 import torch
 import torch.nn.functional as F
 from maskmm.tracker import saveall
+from utils.batch import unpad_length
 import logging
 log = logging.getLogger()
-
-def squash(x):
-    """ remove batch dimension """
-
-    return x.view(-1, *x.shape[2:])
 
 @saveall
 def rpn_class(rpn_match, rpn_class_logits):
@@ -17,8 +13,7 @@ def rpn_class(rpn_match, rpn_class_logits):
                -1=negative, 0=neutral anchor.
     rpn_class_logits: [batch, anchors, 2]. RPN classifier logits for FG/BG.
     """
-    rpn_match = squash(rpn_match)
-    rpn_class_logits = squash(rpn_class_logits)
+    rpn_match, rpn_class_logits = [torch.cat(x) for x in unpad_length([rpn_match, rpn_class_logits])]
 
     # Get anchor classes. Convert the -1/+1 match to 0/1 values.
     anchor_class = (rpn_match == 1).long()

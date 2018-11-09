@@ -4,6 +4,9 @@ import logging
 log = logging.getLogger()
 import numpy as  np
 
+listify = lambda x: [x] if not isinstance(x, (list, tuple)) else x
+unlistify = lambda x: x[0] if len(x)==1 else x
+
 def pad(x, shape):
     """ pad tensor to target shape
     if any dimensions of shape are less than x.shape then these are ignored
@@ -17,34 +20,36 @@ def pad(x, shape):
     padding = np.concatenate(list(padding)).tolist()
     return torch.nn.functional.pad(x, padding)
 
-def pad_length(inputs,):
-    """ adds zero padding to tensors so they can be stacked
-    e.g. class_logits from three items [[12,2], [44,2], [5, 2]] => [[44, 2], [44, 2], [44, 2]]
+def pack(inputs):
+    """ add zero padding and stack
+    e.g. class_logits from three items [[12,2], [44,2], [5, 2]] => [3,44,2]
     """
+    inputs = listify(inputs)
+
     maxlength = max([np.array(x.shape[0]) for x in inputs])
     padded = [pad(x, [maxlength, *x.shape[1:]]) for x in inputs]
+    stacked = [torch.stack(x) for x in padded]
 
-    return padded
+    stacked = unlistify(stacked)
+    return stacked
 
-def unpad_length(inputs):
-    """ removes zero padding from tensors
+def unpack(inputs):
+    """ unstack and remove zero padding
     inputs is list of tensors each is padded/stacked e.g. [[batch, a], [batch, b]
     return is list of list of tensors without the padding e.g. [[a1, a2], [b1, b2]
     """
-    # single tensor could still need unpadding
-    inputs = [inputs] if not isinstance(inputs, (list, tuple)) else inputs
+    inputs = listify(inputs)
 
-    # get index from first variable
+    # unpad based on index from first variable
     x = inputs[0]
     dim = 0 if len(x.shape)==1 else 1
     ix = x.ne(0).any(dim=dim).nonzero()[:, 0].unique()
+    unpacked = [i[ix] for i in inputs]
 
-    # strip zeros
-    inputs = [i[ix] for i in inputs]
-    inputs = inputs[0] if len(inputs)==1 else inputs
-    return inputs
+    unpacked = unlistify(unpacked)
+    return unpacked
 
-def batch_slice(aggfunc=None, in_pad=None):
+def batch_slice(in_pad=None):
     """ converts a function to process batches
     Split the into items and strip padding
     Process each item
@@ -63,52 +68,30 @@ def batch_slice(aggfunc=None, in_pad=None):
 
     Parameters
     ==========
-    aggfunc=torch.stack. aggregate function for return variables. alternatives are torch.cat or lambda x:x (list)
     in_pad=True. strips input padding from all variables. int or list restricts to indexed variables.
     """
-    aggfunc = aggfunc or torch.stack
     in_pad = in_pad or True
 
     def batch_slice_inner(f):
 
         @wraps(f)
         def wrapper(inputs, *args, **kwargs):
-            if not isinstance(inputs, (list, tuple)):
-                inputs = [inputs]
+            inputs = listify(inputs)
+
+            in_pad2 = range(len(inputs)) if in_pad == True else in_pad
+            inputs = [unpack(input) if i in in_pad2 else input for i, input in inputs]
 
             # convert from variables/items to items/variables
             # e.g. inputs [[batch, a], [batch, b]] ==> [[a1, b1], [a2, b2]]
-            inputs = list(zip(*inputs))
+            items = list(zip(*inputs))
 
             # process each item
-            results = []
-            for item in inputs:
-                # strip zero padding
-                item = [item] if not isinstance(item, (list, tuple)) else item
-                strip = range(len(item)) if in_pad == True else in_pad
-                strip = [strip] if not isinstance(strip, (list,tuple)) else strip
-                item = [unpad_length(var) if i in strip else var for i, var in enumerate(item)]
-                item = item[0] if len(item)==1 else item
+            results = [f(item, *args, **kwargs) for item in items]
 
-                r = f(item, *args, **kwargs)
-
-                # temporarily make a list to allow list comprehensions
-                r = [r] if not isinstance(r, (list, tuple)) else r
-
-                results.append(r)
-
-            # convert returns from items/variables to variables/items
+            # convert results from items/variables to variables/items
             # e.g. function returns c,d ==> [[c1, d1], [c2, d2]] => [[c1, c2], [d1, d2]]
             results = list(zip(*results))
-
-            # aggregate outputs
-            if aggfunc is torch.stack:
-                results = [aggfunc(pad_length(output)) for output in results]
-            else:
-                results = [aggfunc(x) for x in results if len(x) > 0]
-
-            # if only one return variable then return it rather than a list
-            results = results[0] if len(results)==1 else results
+            results = pack(results)
 
             return results
         return wrapper
