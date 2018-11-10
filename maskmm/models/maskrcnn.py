@@ -7,7 +7,8 @@ import torch
 import torch.nn as nn
 import torch.utils.data
 
-from maskmm.utils import image_utils, batch
+from maskmm.utils import image_utils
+from maskmm.utils.batch import batch_slice
 
 from maskmm.datagen.head_targets import build_head_targets
 from maskmm.filters.proposals import proposals
@@ -137,18 +138,18 @@ class MaskRCNN(nn.Module):
 
         if targets:
             # todo testing as detection
-            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch.batch_slice()(self.classifier)(x)
+            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
 
             # mask roialign
             x = roialign([rois] + mrcnn_feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
-            mrcnn_mask = batch.batch_slice()(self.mask)(x)
+            mrcnn_mask = batch_slice()(self.mask)(x)
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                              rpn_class_logits, rpn_bbox, \
                              target_class_ids, target_deltas, target_mask, \
                              mrcnn_class_logits, mrcnn_deltas, mrcnn_mask])
         else:
             # for detection need each image separate so batch_slice
-            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch.batch_slice()(self.classifier)(x)
+            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
 
             # detections filter
             detections, rois = get_detections([rois, mrcnn_probs, mrcnn_deltas, image_metas], config)
@@ -158,7 +159,7 @@ class MaskRCNN(nn.Module):
             # Create masks for each image
             # todo adapt mask to only create single mask for the top class
             x = roialign([rois] + mrcnn_feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
-            mrcnn_mask = batch.batch_slice()(self.mask)(x)
+            mrcnn_mask = batch_slice()(self.mask)(x)
 
             return detections, mrcnn_mask
 

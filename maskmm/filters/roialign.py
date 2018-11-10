@@ -4,7 +4,7 @@ from maskmm.utils import batch
 import logging
 log = logging.getLogger()
 
-@batch.batch_slice(in_pad=0)
+@batch.batch_slice()
 def roialign(inputs, pool_size, image_shape):
     """Implements ROI Pooling on multiple levels of the feature pyramid.
 
@@ -30,7 +30,7 @@ def roialign(inputs, pool_size, image_shape):
 
     # Feature Maps. List of feature maps from different level of the
     # feature pyramid. Each is [batch, height, width, channels]
-    feature_maps = inputs[1:]
+    feature_maps = list(inputs[1:])
 
     # Assign each ROI to a level in the pyramid based on the ROI area.
     y1, x1, y2, x2 = boxes.chunk(4, dim=1)

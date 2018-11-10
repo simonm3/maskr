@@ -4,94 +4,110 @@ import logging
 log = logging.getLogger()
 import numpy as  np
 
-listify = lambda x: [x] if not isinstance(x, (list, tuple)) else x
-unlistify = lambda x: x[0] if len(x)==1 else x
+def listify(x):
+    """ allow single item to be treated same as list. simplifies loops and list comprehensions """
+    return [x] if not isinstance(x, (list, tuple)) else list(x)
+
+def unlistify(x):
+    """ remove list wrapper from single item. similar to function returning list or item """
+    return x[0] if len(x)==1 else x
 
 def pad(x, shape):
-    """ pad tensor to target shape
-    if any dimensions of shape are less than x.shape then these are ignored
+    """ return zeropadded x with target shape
+    any dimensions of shape less than x.shape are ignored
+    integer shape extends dim=0 and pads rest with zeros
     """
+    # pad dim0 only
     if isinstance(shape, int):
         shape = [shape, *x.shape[1:]]
     if len(x.shape)!=len(shape):
         raise Exception("x and shape must have same number of dimensions")
     padding = [max(0, t-x) for t,x in zip(shape, x.shape)]
+    # format for torch pad to pad at bottom
     padding = reversed([(0, p) for p in padding])
     padding = np.concatenate(list(padding)).tolist()
     return torch.nn.functional.pad(x, padding)
 
-def pack(inputs):
-    """ add zero padding and stack
-    e.g. class_logits from three items [[12,2], [44,2], [5, 2]] => [3,44,2]
+def pack(variables):
+    """ add zero padding and stack batch dimension to each variable
+    for each variable
+        input is a list of item tensors of same size except for dim0
+        output is stacked, zeropadded tensor with batch dimension
+        e.g. batch of three class_logits [[12,2], [44,2], [5, 2]] => [3,44,2]
     """
-    inputs = listify(inputs)
-
-    maxlength = max([np.array(x.shape[0]) for x in inputs])
-    padded = [pad(x, [maxlength, *x.shape[1:]]) for x in inputs]
-    stacked = [torch.stack(x) for x in padded]
-
-    stacked = unlistify(stacked)
+    stacked = []
+    for v in variables:
+        maxlength  = max([item.shape[0] for item in v])
+        padded = [pad(item, maxlength) for item in v]
+        stacked.append(torch.stack(padded))
     return stacked
 
-def unpack(inputs):
-    """ unstack and remove zero padding
-    inputs is list of tensors each is padded/stacked e.g. [[batch, a], [batch, b]
-    return is list of list of tensors without the padding e.g. [[a1, a2], [b1, b2]
+#todo extend to dataset/dataloader
+def unpack(variables, cat=False):
+    """ remove batch dimension and zero padding from each variable
+      variables is list of zeropadded tensors in form [[batch, a], [batch, b]]
+      return is list of variables where each variable is a list of unpacked tensors [[a1,a2,a3], [b1,b2,b3]]
+
+      if cat=True used in losses to concatenate each variable to return [a,b]
     """
-    inputs = listify(inputs)
+    all_unpacked = []
+    for v in variables:
+        unpacked = [item[item.ne(0).nonzero()[:, 0].unique()] for item in v]
+        if cat:
+            unpacked = torch.cat(unpacked)
+        all_unpacked.append(unpacked)
+    return all_unpacked
 
-    # unpad based on index from first variable
-    x = inputs[0]
-    dim = 0 if len(x.shape)==1 else 1
-    ix = x.ne(0).any(dim=dim).nonzero()[:, 0].unique()
-    unpacked = [i[ix] for i in inputs]
-
-    unpacked = unlistify(unpacked)
-    return unpacked
-
-def batch_slice(in_pad=None):
+def batch_slice():
     """ converts a function to process batches
-    Split the into items and strip padding
+    class_method=True required to avoid the self argument and slice 2nd input instead
+
+    Split batch dimension and remove padding
     Process each item
-    Aggregate return variables into batches using zeropad/stack
+    Pad and stack results by item
 
     Benefits
     ========
     * Simplify code by not vectorizing the batch dimension, leaving optimization until later.
     * Enable inputs of [batch, N, x1, x2, x3] on pytorch modules expecting [batch, x1, x2, x3]
 
-    Inputs and outputs
-    ==================
-    * input tensors are in format [[batch, a], [batch, b], ...]
-    * function is called on each a, b to return outputs c, d
-    * output tensors are in format [[batch, c], [batch, d], ...] or for single output [batch, c]
-
-    Parameters
-    ==========
-    in_pad=True. strips input padding from all variables. int or list restricts to indexed variables.
+    Inputs and outputs to target function
+    =====================================
+    * example c, d = func(inputs, config, z=4)
+    * inputs [[batch, a], [batch, b]]
+    * return [[batch, c], [batch, d], ...] or single variable [batch, c]
+    * inputs and outputs are zeropadded and stacked
     """
-    in_pad = in_pad or True
-
     def batch_slice_inner(f):
-
         @wraps(f)
         def wrapper(inputs, *args, **kwargs):
             inputs = listify(inputs)
+            try:
+                log.info(f.__name__)
+            except:
+                log.info("unknown")
 
-            in_pad2 = range(len(inputs)) if in_pad == True else in_pad
-            inputs = [unpack(input) if i in in_pad2 else input for i, input in inputs]
+            inputs = unpack(inputs)
 
             # convert from variables/items to items/variables
             # e.g. inputs [[batch, a], [batch, b]] ==> [[a1, b1], [a2, b2]]
             items = list(zip(*inputs))
 
-            # process each item
-            results = [f(item, *args, **kwargs) for item in items]
+            #log.info(f"input={[x.shape for x in items[0]]}")
+
+            # process each item.
+            # unlistify allows passing x to classifier rather than [x]
+            # listify forces return to be list for zip.
+            results = [listify(f(unlistify(item), *args, **kwargs)) for item in items]
 
             # convert results from items/variables to variables/items
             # e.g. function returns c,d ==> [[c1, d1], [c2, d2]] => [[c1, c2], [d1, d2]]
             results = list(zip(*results))
+
             results = pack(results)
+
+            #log.info(f"output={[x.shape for x in results]}")
+            results = unlistify(results)
 
             return results
         return wrapper

@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 from maskmm.tracker import saveall
-from utils.batch import unpad_length
+from maskmm.utils.batch import unpack, batch_slice
 import logging
 log = logging.getLogger()
 
@@ -13,8 +13,6 @@ def rpn_class(rpn_match, rpn_class_logits):
                -1=negative, 0=neutral anchor.
     rpn_class_logits: [batch, anchors, 2]. RPN classifier logits for FG/BG.
     """
-    rpn_match, rpn_class_logits = [torch.cat(x) for x in unpad_length([rpn_match, rpn_class_logits])]
-
     # Get anchor classes. Convert the -1/+1 match to 0/1 values.
     anchor_class = (rpn_match == 1).long()
 
@@ -23,9 +21,11 @@ def rpn_class(rpn_match, rpn_class_logits):
     indices = rpn_match.ne(0).nonzero()
 
     # Pick rows that contribute to the loss and filter out the rest.
-    rpn_class_logits = rpn_class_logits[indices[:, 0], indices[:, 1]]
-    anchor_class = anchor_class[indices[:, 0], indices[:, 1]]
+    # note this flattens the batch dimension
+    rpn_class_logits = rpn_class_logits[indices.data[:,0],indices.data[:,1]]
+    anchor_class = anchor_class[indices.data[:,0],indices.data[:,1]]
 
+    log.info([x.shape for x in [rpn_class_logits, anchor_class]])
     # Crossentropy loss
     loss = F.cross_entropy(rpn_class_logits, anchor_class)
     return loss
@@ -42,21 +42,27 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
     """
     # Positive anchors contribute to the loss, but negative and
     # neutral anchors (match value of 0 or -1) don't.
-    target_bbox = squash(target_bbox)
-    rpn_match = squash(rpn_match)
-    rpn_bbox = squash(rpn_bbox)
+    targets = []
+    rpns = []
+    for target_bbox, rpn_match, rpn_bbox in zip(target_bbox, rpn_match, rpn_bbox):
+        # Positive anchors contribute to the loss, but negative and
+        # neutral anchors (match value of 0 or -1) don't.
+        indices = rpn_match.eq(1).nonzero()
 
-    indices = rpn_match.eq(1).nonzero()
+        # Pick bbox deltas that contribute to the loss
+        rpn_bbox = rpn_bbox[indices[:, 0]]
 
-    # Pick bbox deltas that contribute to the loss
-    rpn_bbox = rpn_bbox[indices[:, 0], indices[:, 1]]
+        # Trim target bounding box deltas to the same length as rpn_bbox
+        target_bbox = target_bbox[:len(rpn_bbox)]
 
-    # Trim target bounding box deltas to the same length as rpn_bbox.
-    item_counts = rpn_match.eq(1).sum(dim=1)
-    trimmed = []
-    for i, count in enumerate(item_counts):
-        trimmed.append(target_bbox[i, :count])
-    target_bbox = torch.cat(trimmed)
+        targets.append(target_bbox)
+        rpns.append(rpn_bbox)
+
+    # flatten the batch dimension
+    target_bbox = torch.cat(targets)
+    rpn_bbox = torch.cat(rpns)
+
+    log.info((rpn_bbox.shape, target_bbox.shape))
 
     # Smooth L1 loss
     loss = F.smooth_l1_loss(rpn_bbox, target_bbox)
@@ -71,8 +77,10 @@ def mrcnn_class(target_class_ids, pred_class_logits):
         padding to fill in the array.
     pred_class_logits: [batch, num_rois, num_classes]
     """
-    pred_class_logits = squash(pred_class_logits)
-    target_class_ids = squash(target_class_ids)
+    # todo bs>1
+    target_class_ids = target_class_ids.view(-1)
+    pred_class_logits = pred_class_logits.view(-1, 2)
+
     # todo align sizes and comments in this file e.g. 2 images/batch => 138 ROIS
     if len(target_class_ids):
         loss = F.cross_entropy(pred_class_logits, target_class_ids.long())
@@ -89,9 +97,10 @@ def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
     target_class_ids: [batch, num_rois]. Integer class IDs.
     pred_bbox: [batch, num_rois, num_classes, (dy, dx, log(dh), log(dw))]
     """
-    target_bbox = squash(target_bbox)
-    target_class_ids = squash(target_class_ids)
-    pred_bbox = squash(pred_bbox)
+    # todo bs>1
+    target_bbox = target_bbox.squeeze(0)
+    target_class_ids = target_class_ids.squeeze(0)
+    pred_bbox = pred_bbox.squeeze(0)
 
     if len(target_class_ids):
         # Only positive ROIs contribute to the loss. And only
@@ -122,9 +131,10 @@ def mrcnn_mask(target_masks, target_class_ids, pred_masks):
     pred_masks: [batch, proposals, height, width, num_classes] float32 tensor
                 with values from 0 to 1.
     """
-    target_masks = squash(target_masks)
-    target_class_ids = squash(target_class_ids)
-    pred_masks = squash(pred_masks)
+    # todo bs>1
+    target_masks = target_masks.squeeze(0)
+    target_class_ids = target_class_ids.squeeze(0)
+    pred_masks = pred_masks.squeeze()
 
     if len(target_class_ids):
         # Only positive ROIs contribute to the loss. And only
