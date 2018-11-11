@@ -4,6 +4,9 @@ import logging
 log = logging.getLogger()
 import numpy as  np
 
+def unbatch(*vars):
+    return [x.reshape(-1, x.shape[2:]) for x in vars]
+
 def listify(x):
     """ allow single item to be treated same as list. simplifies loops and list comprehensions """
     return [x] if not isinstance(x, (list, tuple)) else list(x)
