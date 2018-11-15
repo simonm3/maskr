@@ -4,7 +4,7 @@ import random
 import skimage.io
 import matplotlib.pyplot as plt
 
-from maskmm.datasets.coco.config import Config
+from maskmm.samples.coco.config import Config
 from maskmm.models import maskrcnn
 from maskmm.utils import visualize
 

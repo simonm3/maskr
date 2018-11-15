@@ -200,16 +200,11 @@ class Config(object):
 
         # Effective batch size
         if self.GPU_COUNT > 0:
-            self.DEVICE = torch.device("cuda")
             self.BATCH_SIZE = self.IMAGES_PER_GPU * self.GPU_COUNT
             torch.set_default_tensor_type(torch.cuda.FloatTensor)
         else:
-            self.DEVICE = torch.device("cpu")
             self.BATCH_SIZE = self.IMAGES_PER_GPU
             torch.set_default_tensor_type(torch.FloatTensor)
-
-        # Adjust step size based on batch size
-        self.STEPS_PER_EPOCH = self.BATCH_SIZE * self.STEPS_PER_EPOCH
 
         # Input image size
         self.IMAGE_SHAPE = np.array(

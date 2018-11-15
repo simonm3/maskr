@@ -151,9 +151,9 @@ class Dataset(Dataset):
         in the form of a bitmap [height, width, instances].
 
         Returns:
-        masks: A bool array of shape [height, width, instance count] with
+        masks: A bool numpy of shape [height, width, instance count] with
             one mask per instance.
-        class_ids: a 1D array of class IDs of the instance masks.
+        class_ids: a 1D numpy of class IDs of the instance masks.
         """
         # If not a COCO image, delegate to parent class.
         image_info = self.image_info[image_id]
@@ -186,7 +186,7 @@ class Dataset(Dataset):
                 instance_masks.append(m)
                 class_ids.append(class_id)
 
-        # Pack instance masks into an array
+        # Pack instance masks into an numpy
         if class_ids:
             mask = np.stack(instance_masks, axis=2)
             class_ids = np.array(class_ids, dtype=np.int32)
@@ -208,7 +208,7 @@ class Dataset(Dataset):
     def annToRLE(self, ann, height, width):
         """
         Convert annotation which can be polygons, uncompressed RLE to RLE.
-        :return: binary mask (numpy 2D array)
+        :return: binary mask (numpy 2D numpy)
         """
         segm = ann['segmentation']
         if isinstance(segm, list):
@@ -227,7 +227,7 @@ class Dataset(Dataset):
     def annToMask(self, ann, height, width):
         """
         Convert annotation which can be polygons, uncompressed RLE, or RLE to binary mask.
-        :return: binary mask (numpy 2D array)
+        :return: binary mask (numpy 2D numpy)
         """
         rle = self.annToRLE(ann, height, width)
         m = maskUtils.decode(rle)

@@ -8,8 +8,8 @@ import pandas as pd
 from maskmm.models.maskrcnn import MaskRCNN
 from maskmm.learner import Learner
 
-from maskmm.datasets.nuke.config import Config
-from maskmm.datasets.nuke.dataset import Dataset
+from maskmm.samples.nuke.config import Config
+from maskmm.samples.nuke.dataset import Dataset
 
 from os.path import join, expanduser
 import yaml

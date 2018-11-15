@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 from maskmm.utils import box_utils, image_utils, batch
 from maskmm.datagen.rpn_targets import build_rpn_targets
 
-from maskmm.tracker import save, saveall
+from maskmm.baseline import save, saveall
 
 import logging
 log = logging.getLogger()
@@ -134,7 +134,7 @@ class Dataset(Dataset):
         return self.image_info[image_id]["path"]
 
     def load_image(self, image_id):
-        """Load the specified image and return a [H,W,3] Numpy array.
+        """Load the specified image and return a [H,W,3] Numpy numpy.
         """
         # Load image
         image = imread(self.image_info[image_id]['path'])
@@ -153,7 +153,6 @@ class Dataset(Dataset):
         class_ids = np.empty([0], np.int32)
         return mask, class_ids
 
-    @saveall
     def __getitem__(self, image_index):
         """ return image, rpn_targets and ground truth """
 

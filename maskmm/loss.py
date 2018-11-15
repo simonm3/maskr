@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from maskmm.tracker import saveall
+from maskmm.baseline import saveall
 from maskmm.utils.batch import unpack, batch_slice, unbatch
 import logging
 log = logging.getLogger()
@@ -63,8 +63,6 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
     target_bbox = torch.cat(targets)
     rpn_bbox = torch.cat(rpns)
 
-    log.info((rpn_bbox.shape, target_bbox.shape))
-
     # Smooth L1 loss
     loss = F.smooth_l1_loss(rpn_bbox, target_bbox)
 
@@ -75,7 +73,7 @@ def mrcnn_class(target_class_ids, pred_class_logits):
     """Loss for the classifier head of Mask RCNN.
 
     target_class_ids: [batch, num_rois]. Integer class IDs. Uses zero
-        padding to fill in the array.
+        padding to fill in the numpy.
     pred_class_logits: [batch, num_rois, num_classes]
     """
     target_class_ids, pred_class_logits = unbatch(target_class_ids, pred_class_logits)
@@ -125,7 +123,7 @@ def mrcnn_mask(target_masks, target_class_ids, pred_masks):
     """Mask binary cross-entropy loss for the masks head.
 
     target_masks: [batch, num_rois, height, width].
-        A float32 tensor of values 0 or 1. Uses zero padding to fill array.
+        A float32 tensor of values 0 or 1. Uses zero padding to fill numpy.
     target_class_ids: [batch, num_rois]. Integer class IDs. Zero padded.
     pred_masks: [batch, proposals, height, width, num_classes] float32 tensor
                 with values from 0 to 1.

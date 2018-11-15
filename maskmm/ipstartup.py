@@ -10,7 +10,7 @@ import logging
 from logging.config import dictConfig
 home = expanduser("~")
 dictConfig(yaml.load(open(join(home, "logging.yaml"))))
-log = logging.getLogger(__name__)
+log = logging.getLogger()
 if log.getEffectiveLevel() > logging.DEBUG:
     import warnings
     warnings.filterwarnings("ignore")

@@ -217,7 +217,7 @@ def unmold_detections(detections, mrcnn_mask, image_shape, window):
     masks: [height, width, num_instances] Instance masks
     """
     # How many detections do we have?
-    # Detections array is padded with zeros. Find the first class_id == 0.
+    # Detections numpy is padded with zeros. Find the first class_id == 0.
     zero_ix = np.where(detections[:, 4] == 0)[0]
     N = zero_ix[0] if zero_ix.shape[0] > 0 else detections.shape[0]
 

@@ -6,7 +6,7 @@ from maskmm.utils import visualize
 import maskmm.loss as loss
 import logging
 log = logging.getLogger()
-from maskmm.tracker import save, saveall
+from maskmm.baseline import save, saveall
 
 class Learner:
     """ training/validation loop encapsulating model, datasets, optimizer """
@@ -211,7 +211,7 @@ def printProgressBar(iteration, total, prefix='', suffix='', decimals=1, length=
 
 
 def log1(text, array=None):
-    """Prints a text message. And, optionally, if a Numpy array is provided it
+    """Prints a text message. And, optionally, if a Numpy numpy is provided it
     prints it's shape, min, and max values.
     """
     if array is not None:

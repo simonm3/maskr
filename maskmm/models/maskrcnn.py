@@ -20,7 +20,7 @@ from .resnet import ResNet
 from .resnetFPN import FPN
 from .head import Classifier, Mask
 
-from maskmm.tracker import save
+from maskmm.baseline import save
 
 import logging
 log = logging.getLogger()
@@ -86,15 +86,11 @@ class MaskRCNN(nn.Module):
         config = self.config
 
         # Feature extraction
-        [p2_out, p3_out, p4_out, p5_out, p6_out] = self.fpn(images)
-
-        # Note that P6 is used in RPN, but not in the classifier heads.
-        rpn_feature_maps = [p2_out, p3_out, p4_out, p5_out, p6_out]
-        mrcnn_feature_maps = [p2_out, p3_out, p4_out, p5_out]
+        feature_maps = self.fpn(images)
 
         # Loop through pyramid layers
         layer_outputs = []  # list of lists
-        for p in rpn_feature_maps:
+        for p in feature_maps:
             layer_outputs.append(self.rpn(p))
 
         # Concatenate layer outputs
@@ -133,24 +129,20 @@ class MaskRCNN(nn.Module):
             rois = rpn_rois
 
         # todo what if rois zero?
-        # crop feature maps for each roi
-        x = roialign([rois] + mrcnn_feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
+        # crop feature maps for each roi. NOTE drop last featuremap for head
+        x = roialign([rois] + feature_maps[:-1], config.POOL_SIZE, config.IMAGE_SHAPE)
+        mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
 
         if targets:
-            # todo testing as detection
-            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
-
-            # mask roialign
-            x = roialign([rois] + mrcnn_feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
+            # mask roialign. NOTE drop last featuremap for head
+            x = roialign([rois] + feature_maps[:-1], config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
             mrcnn_mask = batch_slice()(self.mask)(x)
+
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                              rpn_class_logits, rpn_bbox, \
                              target_class_ids, target_deltas, target_mask, \
                              mrcnn_class_logits, mrcnn_deltas, mrcnn_mask])
         else:
-            # for detection need each image separate so batch_slice
-            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
-
             # detections filter
             detections, rois = get_detections([rois, mrcnn_probs, mrcnn_deltas, image_metas], config)
 
@@ -158,7 +150,7 @@ class MaskRCNN(nn.Module):
 
             # Create masks for each image
             # todo adapt mask to only create single mask for the top class
-            x = roialign([rois] + mrcnn_feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
+            x = roialign([rois] + feature_maps[:-1], config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
             mrcnn_mask = batch_slice()(self.mask)(x)
 
             return detections, mrcnn_mask
