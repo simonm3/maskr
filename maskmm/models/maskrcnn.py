@@ -12,7 +12,7 @@ from maskmm.utils.batch import batch_slice
 
 from maskmm.datagen.head_targets import build_head_targets
 from maskmm.filters.proposals import proposals
-from maskmm.filters.detections import detections
+from maskmm.filters.detections import get_detections
 from maskmm.filters.roialign import roialign
 
 from .rpn import RPN
@@ -104,67 +104,89 @@ class MaskRCNN(nn.Module):
         # and zero padded.
         proposal_count = config.POST_NMS_ROIS_TRAINING if self.training \
             else config.POST_NMS_ROIS_INFERENCE
-        rpn_rois = proposals([rpn_class, rpn_bbox], proposal_count=proposal_count, config=config)
+        rpn_rois = proposals(rpn_class, rpn_bbox, proposal_count=proposal_count, config=config)
 
         if not config.HEAD:
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                              rpn_class_logits, rpn_bbox, 0,0,0,0,0,0])
 
+        mrcnn_class_logits = torch.empty(0)
+        mrcnn_probs = torch.empty(0).int()
+        mrcnn_deltas = torch.empty(0)
+        mrcnn_mask = torch.empty(0)
+
         if targets:
             with torch.no_grad():
                 # Subsample proposals, generate target outputs for training and filter rois
+                # inputs are zero padded.
+                # output rois are stacked; rest are concatenated
+
                 rois, target_class_ids, target_deltas, target_mask = \
-                    build_head_targets([rpn_rois, gt_class_ids, gt_boxes, gt_masks], config)
+                    build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
         else:
             rois = rpn_rois
 
+        # todo what if rois zero?
         # crop feature maps for each roi. NOTE drop last featuremap for head
-        x = roialign([rois] + feature_maps[:-1], config.POOL_SIZE, config.IMAGE_SHAPE)
+        x = roialign(rois, *feature_maps[:-1], config.POOL_SIZE, config.IMAGE_SHAPE)
         mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
 
-        # mask head
-        x = roialign([rois] + feature_maps[:-1], config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
-        mrcnn_mask = batch_slice()(self.mask)(x)
-
         if targets:
+            # mask roialign. NOTE drop last featuremap for head
+            x = roialign(rois, *feature_maps[:-1], config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
+            mrcnn_mask = batch_slice()(self.mask)(x)
+
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                              rpn_class_logits, rpn_bbox, \
                              target_class_ids, target_deltas, target_mask, \
                              mrcnn_class_logits, mrcnn_deltas, mrcnn_mask])
         else:
-            return rois, mrcnn_probs, mrcnn_deltas, mrcnn_mask
+            # detections filter
+            detections, rois = get_detections(rois, mrcnn_probs, mrcnn_deltas, image_metas, config)
+
+            # todo detections=>todo boxes, class_ids, scores
+            # todo move get_detections after mask. pass mask to include in filter
+
+            # Create masks for each image
+            # todo adapt mask to only create single mask for the top class
+            x = roialign(rois, *feature_maps[:-1], config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
+            mrcnn_mask = batch_slice()(self.mask)(x)
+
+            return detections, mrcnn_mask
 
     def predict(self, images):
         # predict list of images without targets, bypassing dataset
+        # todo filter during training?? is there a layer missing before mask?
         if not isinstance(images, list):
             images = [images]
 
         # format inputs as dataset would
-        images = []
+        molded_images = []
         image_shapes = []
         image_metas = []
         for image in images:
             image_shapes.append(image.shape)
             image, window, scale, padding = image_utils.resize_image(image, self.config)
             image = image_utils.mold_image(image, self.config)
-            images.append(image)
+            molded_images.append(image)
             image_meta = image_utils.mold_meta(dict(window=window))
             image_metas.append(image_meta)
-        images = torch.stack(images)
+        molded_images = torch.stack(molded_images)
         image_metas = torch.stack(image_metas)
 
          # predict
         with torch.no_grad():
-            rois, probs, deltas, masks = self(images, image_metas)
+            detections, mrcnn_mask = self(molded_images, image_metas)
 
-        # filter and format output
+        detections = detections.cpu().numpy()
+        mrcnn_mask = mrcnn_mask.permute(0, 1, 3, 4, 2).data.cpu().numpy()
+        image_metas = [image_utils.unmold_meta(m) for m in image_metas]
+
+        # Process detections
         results = []
         for i, image in enumerate(images):
-            boxes, class_ids, scores, masks = \
-                detections(rois[i], probs[i], deltas[i], masks[i], image_metas[i], self.config)
-
-            res = image_utils.unmold_detections(boxes, class_ids, scores, masks,\
-                                    image_shapes[i], image_meta)
+            res = image_utils.unmold_detections(detections[i], mrcnn_mask[i],
+                                    image_shapes[i], image_metas[i]["window"])
             results.append(res)
         return results
 

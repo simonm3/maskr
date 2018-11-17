@@ -20,6 +20,8 @@ import matplotlib.patches as patches
 import matplotlib.lines as lines
 from matplotlib.patches import Polygon
 from maskmm.utils import image_utils
+import logging
+log = logging.getLogger()
 
 
 ############################################################

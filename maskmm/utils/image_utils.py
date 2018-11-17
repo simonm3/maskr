@@ -2,7 +2,6 @@ import numpy as np
 import scipy.misc, scipy.ndimage
 import torch
 from skimage.transform import rotate, warp, AffineTransform
-from maskmm.utils.batch import unpack
 import logging
 log = logging.getLogger()
 
@@ -200,7 +199,7 @@ def augment_image(img, vflip=.5, hflip=.5, angle=360, shear=.3, seed=np.random.r
     return img
 
 # todo merge in with other
-def unmold_detections(boxes, class_ids, scores, masks, image_shape, image_meta):
+def unmold_detections(detections, mrcnn_mask, image_shape, window):
     """Reformats the detections of one image from the format of the neural
     network output to a format suitable for use in the rest of the
     application.
@@ -217,13 +216,16 @@ def unmold_detections(boxes, class_ids, scores, masks, image_shape, image_meta):
     scores: [N] Float probability scores of the class_id
     masks: [height, width, num_instances] Instance masks
     """
-    boxes, class_ids, scores, masks = unpack(boxes, class_ids, scores, masks)
-
-    masks = masks.permute(1, 3, 4, 2).cpu().numpy()
-    window = unmold_meta(image_meta)["window"]
+    # How many detections do we have?
+    # Detections numpy is padded with zeros. Find the first class_id == 0.
+    zero_ix = np.where(detections[:, 4] == 0)[0]
+    N = zero_ix[0] if zero_ix.shape[0] > 0 else detections.shape[0]
 
     # Extract boxes, class_ids, scores, and class-specific masks
-    masks = masks[np.arange(len(masks)), :, :, class_ids]
+    boxes = detections[:N, :4]
+    class_ids = detections[:N, 4].astype(np.int32)
+    scores = detections[:N, 5]
+    masks = mrcnn_mask[np.arange(N), :, :, class_ids]
 
     # Compute scale and shift to translate coordinates to image domain.
     h_scale = image_shape[0] / (window[2] - window[0])

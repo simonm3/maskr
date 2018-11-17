@@ -85,7 +85,6 @@ def batch_slice(slice=1, packed=None):
     def batch_slice_inner(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
-            global packed
             inputs, constants = args[:slice], args[slice:]
 
             inputs = listify(inputs)
@@ -94,8 +93,8 @@ def batch_slice(slice=1, packed=None):
             except:
                 pass#log.info("unknown")
 
-            packed = packed or slice
-            inputs[:packed] = unpack(inputs[:packed])
+            n = packed or slice
+            inputs[:n] = unpack(inputs[:n])
 
             # convert from variables/items to items/variables
             # e.g. inputs [[batch, a], [batch, b]] ==> [[a1, b1], [a2, b2]]
