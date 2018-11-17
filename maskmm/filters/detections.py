@@ -61,7 +61,7 @@ def get_detections(rois, probs, deltas, image_meta, config):
 
     unscaled_rois = torch.tensor(refined_rois)
 
-    # Convert coordinates to image domain
+    # Convert coordinates from 0-1 to image scale
     height, width = config.IMAGE_SHAPE[:2]
     scale = torch.tensor(np.array([height, width, height, width])).float()
     refined_rois *= scale
@@ -69,7 +69,7 @@ def get_detections(rois, probs, deltas, image_meta, config):
     # Clip boxes to image window
     refined_rois = box_utils.clip_to_window(window, refined_rois)
 
-    # Round and cast to int since we're deadling with pixels now
+    # Round and cast to int since we're dealing with pixels now
     refined_rois = torch.round(refined_rois)
 
     # Filter out boxes with zero area or background
@@ -111,10 +111,9 @@ def get_detections(rois, probs, deltas, image_meta, config):
     top_ids = class_scores[keep].sort(descending=True)[1][:config.DETECTION_MAX_INSTANCES]
     keep = keep[top_ids]
 
-    # Arrange output as [N, (y1, x1, y2, x2, class_id, score)]
-    # Coordinates are in image domain.
-    result = torch.cat((refined_rois[keep],
-                        class_ids[keep].unsqueeze(1).float(),
-                        class_scores[keep].unsqueeze(1)), dim=1)
+    # apply filter
+    boxes = refined_rois[keep]
+    class_ids = class_ids[keep]
+    scores = class_scores[keep]
 
-    return result, unscaled_rois[keep]
+    return boxes, class_ids, scores, unscaled_rois[keep]

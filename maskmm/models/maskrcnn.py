@@ -126,7 +126,6 @@ class MaskRCNN(nn.Module):
         else:
             rois = rpn_rois
 
-        # todo what if rois zero?
         # crop feature maps for each roi. NOTE drop last featuremap for head
         x = roialign(rois, *feature_maps[:-1], config.POOL_SIZE, config.IMAGE_SHAPE)
         mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
@@ -141,31 +140,28 @@ class MaskRCNN(nn.Module):
                              target_class_ids, target_deltas, target_mask, \
                              mrcnn_class_logits, mrcnn_deltas, mrcnn_mask])
         else:
-            # detections filter
-            detections, rois = get_detections(rois, mrcnn_probs, mrcnn_deltas, image_metas, config)
+            # detections filter speeds inference and improves accuracy (see maskrcnn paper)
+            #### putting this after mask head is much worse!!!
+            # note boxes are image domain for output. rois are scaled.
+            boxes, class_ids, scores, rois = get_detections(rois, mrcnn_probs, mrcnn_deltas, image_metas, config)
 
-            # todo detections=>todo boxes, class_ids, scores
-            # todo move get_detections after mask. pass mask to include in filter
-
-            # Create masks for each image
-            # todo adapt mask to only create single mask for the top class
+            # Create masks for the selected boxes
             x = roialign(rois, *feature_maps[:-1], config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
-            mrcnn_mask = batch_slice()(self.mask)(x)
+            masks = batch_slice()(self.mask)(x)
 
-            return detections, mrcnn_mask
+            return boxes, class_ids, scores, masks
 
     def predict(self, images):
         # predict list of images without targets, bypassing dataset
-        # todo filter during training?? is there a layer missing before mask?
         if not isinstance(images, list):
             images = [images]
 
-        # format inputs as dataset would
+        # prepare inputs without using dataset
         molded_images = []
         image_shapes = []
         image_metas = []
         for image in images:
-            image_shapes.append(image.shape)
+            image_shapes.append(torch.tensor(image.shape))
             image, window, scale, padding = image_utils.resize_image(image, self.config)
             image = image_utils.mold_image(image, self.config)
             molded_images.append(image)
@@ -173,27 +169,22 @@ class MaskRCNN(nn.Module):
             image_metas.append(image_meta)
         molded_images = torch.stack(molded_images)
         image_metas = torch.stack(image_metas)
+        image_shapes = torch.stack(image_shapes)
 
          # predict
         with torch.no_grad():
-            detections, mrcnn_mask = self(molded_images, image_metas)
+            boxes, class_ids, scores, masks = self(molded_images, image_metas)
 
-        detections = detections.cpu().numpy()
-        mrcnn_mask = mrcnn_mask.permute(0, 1, 3, 4, 2).data.cpu().numpy()
-        image_metas = [image_utils.unmold_meta(m) for m in image_metas]
-
-        # Process detections
+        # prepare outputs
         results = []
-        for i, image in enumerate(images):
-            res = image_utils.unmold_detections(detections[i], mrcnn_mask[i],
-                                    image_shapes[i], image_metas[i]["window"])
-            results.append(res)
+        for i in range(len(images)):
+            detections1 = [var[i] for var in [boxes, class_ids, scores, masks, image_shapes, image_metas]]
+            results.append(image_utils.unmold_detections(*detections1))
         return results
 
     def initialize_weights(self):
         """Initialize model weights.
         """
-
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.xavier_uniform_(m.weight)

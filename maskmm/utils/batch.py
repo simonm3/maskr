@@ -109,7 +109,6 @@ def batch_slice(slice=1, packed=None):
 
             results = pack(results)
 
-            #log.info(f"output={[x.shape for x in results]}")
             results = unlistify(results)
 
             return results
