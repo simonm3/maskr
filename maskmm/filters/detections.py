@@ -1,8 +1,10 @@
 
 import torch
-from maskmm.utils import batch, box_utils
+from maskmm.utils import box_utils
+from maskmm.utils.batch import batch_slice
 from maskmm.lib.nms.nms_wrapper import nms
 import numpy as np
+from maskmm.utils.batch import unpack
 
 import logging
 log = logging.getLogger()
@@ -27,8 +29,7 @@ def intersect1d(tensor1, tensor2):
 
 ###############################################
 
-@batch.batch_slice()
-def get_detections(inputs, config):
+def detections(rois, probs, deltas, masks, image_meta, config):
     """Refine classified proposals and filter overlaps and return final
     detections.
 
@@ -42,7 +43,7 @@ def get_detections(inputs, config):
 
     Returns detections shaped: [N, (y1, x1, y2, x2, class_id, score)]
     """
-    rois, probs, deltas, image_meta= inputs
+    rois, probs, deltas, masks = unpack(rois, probs, deltas, masks)
     window = image_meta["window"]
 
     # Class IDs per ROI
@@ -51,15 +52,13 @@ def get_detections(inputs, config):
     # Class probability of the top class of each ROI
     # Class-specific bounding box deltas
     idx = torch.arange(class_ids.size()[0]).long()
-    class_scores = probs[idx, class_ids]
+    scores = probs[idx, class_ids]
     deltas_specific = deltas[idx, class_ids]
 
     # Apply bounding box deltas
     # Shape: [boxes, (y1, x1, y2, x2)] in normalized coordinates
     std_dev = torch.tensor(np.reshape(config.RPN_BBOX_STD_DEV, [1, 4])).float()
     refined_rois = box_utils.apply_box_deltas(rois, deltas_specific * std_dev)
-
-    unscaled_rois = torch.tensor(refined_rois)
 
     # Convert coordinates to image domain
     height, width = config.IMAGE_SHAPE[:2]
@@ -78,12 +77,12 @@ def get_detections(inputs, config):
 
     # Filter out low confidence boxes
     if config.DETECTION_MIN_CONFIDENCE:
-        keep_bool = keep_bool & (class_scores >= config.DETECTION_MIN_CONFIDENCE)
+        keep_bool = keep_bool & (scores >= config.DETECTION_MIN_CONFIDENCE)
     keep = torch.nonzero(keep_bool)[:,0]
 
     # Apply per-class NMS
     pre_nms_class_ids = class_ids[keep]
-    pre_nms_scores = class_scores[keep]
+    pre_nms_scores = scores[keep]
     pre_nms_rois = refined_rois[keep]
 
     for i, class_id in enumerate(unique1d(pre_nms_class_ids)):
@@ -108,13 +107,14 @@ def get_detections(inputs, config):
     keep = intersect1d(keep, nms_keep)
 
     # Keep top detections
-    top_ids = class_scores[keep].sort(descending=True)[1][:config.DETECTION_MAX_INSTANCES]
+    top_ids = scores[keep].sort(descending=True)[1][:config.DETECTION_MAX_INSTANCES]
     keep = keep[top_ids]
 
     # Arrange output as [N, (y1, x1, y2, x2, class_id, score)]
     # Coordinates are in image domain.
-    result = torch.cat((refined_rois[keep],
-                        class_ids[keep].unsqueeze(1).float(),
-                        class_scores[keep].unsqueeze(1)), dim=1)
+    rois = refined_rois[keep]
+    class_ids = class_ids[keep].unsqueeze(1).float()
+    scores = scores[keep].unsqueeze(1)
+    masks = masks[keep]
 
-    return result, unscaled_rois[keep]
+    return rois, class_ids, scores, masks

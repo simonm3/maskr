@@ -1,11 +1,11 @@
 import torch
 from maskmm.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
-from maskmm.utils import batch
+from maskmm.utils.batch import batch_slice
 import logging
 log = logging.getLogger()
 
-@batch.batch_slice()
-def roialign(inputs, pool_size, image_shape):
+@batch_slice(5, 1)
+def roialign(boxes, p2, p3, p4, p5, pool_size, image_shape):
     """Implements ROI Pooling on multiple levels of the feature pyramid.
 
     Params:
@@ -24,13 +24,12 @@ def roialign(inputs, pool_size, image_shape):
     constructor.
     """
     # Crop boxes [batch, num_boxes, (y1, x1, y2, x2)] in normalized coords
-    boxes = inputs[0]
     if len(boxes)==0:
         return torch.empty(0)
 
     # Feature Maps. List of feature maps from different level of the
     # feature pyramid. Each is [batch, height, width, channels]
-    feature_maps = list(inputs[1:])
+    feature_maps = [p2,p3,p4,p5]
 
     # Assign each ROI to a level in the pyramid based on the ROI area.
     y1, x1, y2, x2 = boxes.chunk(4, dim=1)
@@ -42,8 +41,6 @@ def roialign(inputs, pool_size, image_shape):
     # e.g. a 224x224 ROI (in pixels) maps to P4
     with torch.no_grad():
         image_area = torch.tensor([float(image_shape[0]*image_shape[1])]).float()
-    if boxes.is_cuda:
-        image_area = image_area.cuda()
     roi_level = 4 + torch.log2(torch.sqrt(h*w)/(224.0/torch.sqrt(image_area)))
     roi_level = roi_level.round().int()
     roi_level = roi_level.clamp(2,5)

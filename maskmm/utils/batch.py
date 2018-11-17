@@ -61,9 +61,10 @@ def unpack(variables, cat=False):
         all_unpacked.append(unpacked)
     return all_unpacked
 
-def batch_slice():
+def batch_slice(slice=1, packed=None):
     """ converts a function to process batches
-    class_method=True required to avoid the self argument and slice 2nd input instead
+    slice=number of params to slice
+    packed=number of sliced variables that are zero packed. None assumes all.
 
     Split batch dimension and remove padding
     Process each item
@@ -83,25 +84,25 @@ def batch_slice():
     """
     def batch_slice_inner(f):
         @wraps(f)
-        def wrapper(inputs, *args, **kwargs):
+        def wrapper(*args, **kwargs):
+            global packed
+            inputs, constants = args[:slice], args[slice:]
+
             inputs = listify(inputs)
             try:
-                log.info(f.__name__)
+                pass#log.info(f.__name__)
             except:
-                log.info("unknown")
+                pass#log.info("unknown")
 
-            inputs = unpack(inputs)
+            packed = packed or slice
+            inputs[:packed] = unpack(inputs[:packed])
 
             # convert from variables/items to items/variables
             # e.g. inputs [[batch, a], [batch, b]] ==> [[a1, b1], [a2, b2]]
             items = list(zip(*inputs))
 
-            #log.info(f"input={[x.shape for x in items[0]]}")
-
-            # process each item.
-            # unlistify allows passing x to classifier rather than [x]
-            # listify forces return to be list for zip.
-            results = [listify(f(unlistify(item), *args, **kwargs)) for item in items]
+            # process each item. listify forces return to be list for zip.
+            results = [listify(f(*item, *constants, **kwargs)) for item in items]
 
             # convert results from items/variables to variables/items
             # e.g. function returns c,d ==> [[c1, d1], [c2, d2]] => [[c1, c2], [d1, d2]]

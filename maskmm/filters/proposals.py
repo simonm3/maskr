@@ -2,15 +2,15 @@ import torch
 import numpy as np
 from maskmm.utils import box_utils
 from maskmm.lib.nms.nms_wrapper import nms
-from maskmm.utils import batch
+from maskmm.utils.batch import batch_slice
 
 from maskmm.baseline import save, saveall
 import logging
 log = logging.getLogger()
 
 @saveall
-@batch.batch_slice()
-def proposals(inputs, proposal_count, config):
+@batch_slice(2)
+def proposals(rpn_class, rpn_bbox, proposal_count, config):
     """Receives anchor scores and selects a subset to pass as proposals
        to the second stage. Filtering is done based on anchor scores and
        non-max suppression to remove overlaps. It also applies bounding
@@ -23,8 +23,6 @@ def proposals(inputs, proposal_count, config):
        Returns:
            Proposals in normalized coordinates [batch, rois, (y1, x1, y2, x2)]
        """
-    rpn_class, rpn_bbox = inputs
-
     # Box Scores. Use the foreground class confidence. [Batch, num_rois, 1]
     rpn_class = rpn_class[:, 1]
 

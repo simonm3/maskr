@@ -130,11 +130,14 @@ def mrcnn_mask(target_masks, target_class_ids, pred_masks):
     """
     # todo bs>1. need to do all the below for each batch OR vectorize
 
+    target_masks, target_class_ids, pred_masks = unbatch(target_masks, target_class_ids, pred_masks)
+
     if len(target_class_ids):
         # Only positive ROIs contribute to the loss. And only
         # the class specific mask of each ROI.
         positive_ix = torch.nonzero(target_class_ids > 0)[:, 0]
         positive_class_ids = target_class_ids[positive_ix].long()
+
         indices = torch.stack((positive_ix, positive_class_ids), dim=1)
 
         # Gather the masks (predicted and true) that contribute to loss

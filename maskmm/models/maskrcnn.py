@@ -12,7 +12,7 @@ from maskmm.utils.batch import batch_slice
 
 from maskmm.datagen.head_targets import build_head_targets
 from maskmm.filters.proposals import proposals
-from maskmm.filters.detections import get_detections
+from maskmm.filters.detections import detections
 from maskmm.filters.roialign import roialign
 
 from .rpn import RPN
@@ -81,8 +81,6 @@ class MaskRCNN(nn.Module):
         else:
             images, image_metas = inputs
 
-        image_metas = [image_utils.unmold_meta(m) for m in image_metas]
-
         config = self.config
 
         # Feature extraction
@@ -112,52 +110,32 @@ class MaskRCNN(nn.Module):
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                              rpn_class_logits, rpn_bbox, 0,0,0,0,0,0])
 
-        mrcnn_class_logits = torch.empty(0)
-        mrcnn_probs = torch.empty(0).int()
-        mrcnn_deltas = torch.empty(0)
-        mrcnn_mask = torch.empty(0)
-
         if targets:
             with torch.no_grad():
                 # Subsample proposals, generate target outputs for training and filter rois
-                # inputs are zero padded.
-                # output rois are stacked; rest are concatenated
-
                 rois, target_class_ids, target_deltas, target_mask = \
                     build_head_targets([rpn_rois, gt_class_ids, gt_boxes, gt_masks], config)
         else:
             rois = rpn_rois
 
-        # todo what if rois zero?
         # crop feature maps for each roi. NOTE drop last featuremap for head
         x = roialign([rois] + feature_maps[:-1], config.POOL_SIZE, config.IMAGE_SHAPE)
         mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
 
-        if targets:
-            # mask roialign. NOTE drop last featuremap for head
-            x = roialign([rois] + feature_maps[:-1], config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
-            mrcnn_mask = batch_slice()(self.mask)(x)
+        # mask head
+        x = roialign([rois] + feature_maps[:-1], config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
+        mrcnn_mask = batch_slice()(self.mask)(x)
 
+        if targets:
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                              rpn_class_logits, rpn_bbox, \
                              target_class_ids, target_deltas, target_mask, \
                              mrcnn_class_logits, mrcnn_deltas, mrcnn_mask])
         else:
-            # detections filter
-            detections, rois = get_detections([rois, mrcnn_probs, mrcnn_deltas, image_metas], config)
-
-            #detections=>todo boxes, class_ids, scores
-
-            # Create masks for each image
-            # todo adapt mask to only create single mask for the top class
-            x = roialign([rois] + feature_maps[:-1], config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
-            mrcnn_mask = batch_slice()(self.mask)(x)
-
-            return detections, mrcnn_mask
+            return rois, mrcnn_probs, mrcnn_deltas, mrcnn_mask
 
     def predict(self, images):
         # predict list of images without targets, bypassing dataset
-        # todo filter during training?? is there a layer missing before mask?
         if not isinstance(images, list):
             images = [images]
 
@@ -177,17 +155,16 @@ class MaskRCNN(nn.Module):
 
          # predict
         with torch.no_grad():
-            detections, mrcnn_mask = self(images, image_metas)
+            rois, probs, deltas, masks = self(images, image_metas)
 
-        detections = detections.cpu().numpy()
-        mrcnn_mask = mrcnn_mask.permute(0, 1, 3, 4, 2).data.cpu().numpy()
-        image_metas = [image_utils.unmold_meta(m) for m in image_metas]
-
-        # Process detections
+        # filter and format output
         results = []
         for i, image in enumerate(images):
-            res = image_utils.unmold_detections(detections[i], mrcnn_mask[i],
-                                    image_shapes[i], image_metas[i]["window"])
+            boxes, class_ids, scores, masks = \
+                detections(rois[i], probs[i], deltas[i], masks[i], image_metas[i], self.config)
+
+            res = image_utils.unmold_detections(boxes, class_ids, scores, masks,\
+                                    image_shapes[i], image_meta)
             results.append(res)
         return results
 

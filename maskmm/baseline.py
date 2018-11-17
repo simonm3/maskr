@@ -40,14 +40,15 @@ class Baseline:
         if name:
             self.path = join(ROOT, name)
 
-    def start(self, name):
+    def start(self, name, clear=True):
         """ enable saving
         name: subfolder to save/load results
         """
         log.warning(f"baseline {name} started. This is ignored for any modules already imported!!!")
         self.path = join(ROOT, name)
         self.enabled = True
-        self.clear()
+        if clear:
+            self.clear()
 
     def clear(self):
         """ clear saved files """
@@ -87,6 +88,11 @@ class Baseline:
     def saveall(base, f):
         """ function decorator. save parameters, random state and return values
 
+        can also be used for checkpoints e.g. this would create check1.a, check1.b
+            @saveall
+            def check1(a, b):
+                pass
+
         todo tensorflow bug requires "self" as parameter to call function
         HACKAROUND WRAPPER BELOW USES SELF AND THIS FUNCTION USES BASE AS FIRST PARAMETER
         """
@@ -106,8 +112,6 @@ class Baseline:
             params.update(kwargs)
 
             for param, v in params.items():
-                log.info(param)
-                log.info(v)
                 base.save(v, f"{func_name}.{param}")
 
             # save random state
@@ -151,7 +155,6 @@ class Baseline:
         inputs = inspect.getfullargspec(func).args
         params = []
         for iname in inputs:
-            log.info(f"loading {iname}")
             try:
                 params.append(self.load(f"{func.__name__}.{iname}_{index}"))
             except:
@@ -170,9 +173,11 @@ class Test:
         self.baseline = baseline
         self.tolerance = tolerance
 
+        # other class variables to be set
         self.inputs = None
         self.baseline.results = None
         self.results = None
+        self.func = None
 
         # each run with different data increments index
         self.index = 0
@@ -197,8 +202,6 @@ class Test:
         # match
         for a, b in zip(listify(self.results), listify(self.baseline.results)):
             diff = match(a,b)
-            log.info(a)
-            log.info(b)
             assert diff <= self.tolerance
 
         self.index += 1
@@ -223,7 +226,9 @@ def match(a, b):
             diff = a==b
         else:
             diff = mse(a, b)
-    except (TypeError, RuntimeError):
+    except (TypeError, RuntimeError) as e:
+        log.info(f"cannot match {ftype(a)}, {ftype(b)}")
+        log.exception(e)
         diff = 999
     return diff
 
@@ -236,7 +241,7 @@ def mse(a, b):
 def numpy(x):
     """ convert to numpy double """
     if isinstance(x, torch.Tensor):
-        x = x.cpu().numpy()
+        x = x.detach().cpu().numpy()
     elif isinstance(x, tf.Tensor):
         x  = x.numpy()
     return x.astype(np.float64)
