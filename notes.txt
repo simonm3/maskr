@@ -17,7 +17,7 @@ makedirs log directory
 #### logging/debugging
 rename log as log1
 add logging
-add tracker saves
+add baseline saves
 
 #### make predictable
 set dataloader.num_workers=0, augment=False, shuffle=False
@@ -27,12 +27,12 @@ MASKMM
 
 #### restructure
 structure into multiple files
-seperate applications nuke, coco etc..
+seperate samples nuke, coco etc..
 remove duplication e.g. dataset, bbox_overlaps
 
 #### update
 replace numpy with torch where possible
-update to pytorch1 removing Variable, .data etc..
+update to pytorch 1 removing Variable, .data etc..
 add fastai learner
 
 #### align output with original
@@ -40,13 +40,10 @@ config.COMPAT for random numbers, dtypes
 set dataloader.num_workers=0, augment=False, shuffle=False
 GPU STILL HAS DIFFERENCES IN CONV
 
-#### logging/debugging
-tracker
+Testing
+=======
 
-#todo detections
-#todo demo mold_image still numpy
-
-test on single image
+test on a single image
     inputs from dataset/dataload
     targets - rpn, anchors, target masks and boxes
     forward loss
@@ -54,13 +51,9 @@ test on single image
     check post step weights
 test more images (as above)
 train convergence
+bs>1
 
 ##### runs 10% faster on GPU - likely due to numpy=> pytorch
 ##### similar accuracy. needs longer test run
-##### not tried fastai learner
-
-#### working on gpu with fastai learner.
-#### callbacks not working for showgraph. num_workers>0 fails
-#### fix batch size>1
-#### try keras??
+#### num_workers>0 fails
 

@@ -64,11 +64,11 @@ def unpack(variables, cat=False):
 def batch_slice(slice=1, packed=None):
     """ converts a function to process batches
     slice=number of params to slice
-    packed=number of sliced variables that are zero packed. None assumes all.
+    packed=number of zero-padded params. None assumes all.
 
     Split batch dimension and remove padding
     Process each item
-    Pad and stack results by item
+    Stack results by item. Pad with zeros if needed.
 
     Benefits
     ========
@@ -93,6 +93,7 @@ def batch_slice(slice=1, packed=None):
             except:
                 pass#log.info("unknown")
 
+            # unpack up to packed. default is all sliced vars
             n = packed or slice
             inputs[:n] = unpack(inputs[:n])
 

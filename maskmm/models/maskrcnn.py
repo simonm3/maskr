@@ -47,14 +47,11 @@ class MaskRCNN(nn.Module):
                             "to avoid fractions when downscaling and upscaling."
                             "For example, use 256, 320, 384, 448, 512, ... etc. ")
 
-        # Build the shared convolutional layers.
-        # Bottom-up Layers
-        # Returns a list of the last layers of each stage, 5 in total.
-        # Don't create the head (stage 5), so we pick the 4th item in the list.
+        # backbone
         resnet = ResNet("resnet101", stage5=True)
         C1, C2, C3, C4, C5 = resnet.stages()
 
-        # backbone
+        # feature pyramid
         self.fpn = FPN(C1, C2, C3, C4, C5, out_channels=256)
 
         # RPN
@@ -91,6 +88,9 @@ class MaskRCNN(nn.Module):
         for p in feature_maps:
             layer_outputs.append(self.rpn(p))
 
+        # last feature map not used for classifier/mask head
+        feature_maps = feature_maps[:-1]
+
         # Concatenate layer outputs
         # Convert from list of lists of level outputs to list of lists
         # of outputs across levels.
@@ -99,9 +99,7 @@ class MaskRCNN(nn.Module):
         outputs = [torch.cat(list(o), dim=1) for o in outputs]
         rpn_class_logits, rpn_class, rpn_bbox = outputs
 
-        # Generate proposals
-        # Proposals are [batch, N, (y1, x1, y2, x2)] in normalized coordinates
-        # and zero padded.
+        # Generate proposals [batch, N, (y1, x1, y2, x2)] in normalized coordinates, zero padded.
         proposal_count = config.POST_NMS_ROIS_TRAINING if self.training \
             else config.POST_NMS_ROIS_INFERENCE
         rpn_rois = proposals(rpn_class, rpn_bbox, proposal_count=proposal_count, config=config)
@@ -110,29 +108,21 @@ class MaskRCNN(nn.Module):
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                              rpn_class_logits, rpn_bbox, 0,0,0,0,0,0])
 
-        mrcnn_class_logits = torch.empty(0)
-        mrcnn_probs = torch.empty(0).int()
-        mrcnn_deltas = torch.empty(0)
-        mrcnn_mask = torch.empty(0)
-
         if targets:
+            # Subsample proposals, generate target outputs for training and filter rois
             with torch.no_grad():
-                # Subsample proposals, generate target outputs for training and filter rois
-                # inputs are zero padded.
-                # output rois are stacked; rest are concatenated
-
                 rois, target_class_ids, target_deltas, target_mask = \
                     build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
         else:
             rois = rpn_rois
 
-        # crop feature maps for each roi. NOTE drop last featuremap for head
-        x = roialign(rois, *feature_maps[:-1], config.POOL_SIZE, config.IMAGE_SHAPE)
+        # class head
+        x = roialign(rois, *feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
         mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
 
         if targets:
-            # mask roialign. NOTE drop last featuremap for head
-            x = roialign(rois, *feature_maps[:-1], config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
+            # mask head
+            x = roialign(rois, *feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
             mrcnn_mask = batch_slice()(self.mask)(x)
 
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
@@ -142,17 +132,17 @@ class MaskRCNN(nn.Module):
         else:
             # detections filter speeds inference and improves accuracy (see maskrcnn paper)
             #### putting this after mask head is much worse!!!
-            # note boxes are image domain for output. rois are scaled.
+            # boxes are image domain for output. rois are as above but filtered i.e. suitable for mask head.
             boxes, class_ids, scores, rois = get_detections(rois, mrcnn_probs, mrcnn_deltas, image_metas, config)
 
-            # Create masks for the selected boxes
-            x = roialign(rois, *feature_maps[:-1], config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
+            # mask head
+            x = roialign(rois, *feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
             masks = batch_slice()(self.mask)(x)
 
             return boxes, class_ids, scores, masks
 
     def predict(self, images):
-        # predict list of images without targets, bypassing dataset
+        """ predict list of images without targets, bypassing dataset """
         if not isinstance(images, list):
             images = [images]
 

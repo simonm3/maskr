@@ -23,7 +23,6 @@ def roialign(boxes, p2, p3, p4, p5, pool_size, image_shape):
     The width and height are those specific in the pool_shape in the layer
     constructor.
     """
-    # Crop boxes [batch, num_boxes, (y1, x1, y2, x2)] in normalized coords
     if len(boxes)==0:
         return torch.empty(0)
 
@@ -73,8 +72,6 @@ def roialign(boxes, p2, p3, p4, p5, pool_size, image_shape):
         # Result: [batch * num_boxes, pool_height, pool_width, channels]
         with torch.no_grad():
             ind = torch.zeros(level_boxes.size()[0]).int()
-        if level_boxes.is_cuda:
-            ind = ind.cuda()
         feature_maps[i] = feature_maps[i].unsqueeze(0)  #CropAndResizeFunction needs batch dimension
         pooled_features = CropAndResizeFunction(pool_size, pool_size, 0)(feature_maps[i], level_boxes, ind)
         pooled.append(pooled_features)
