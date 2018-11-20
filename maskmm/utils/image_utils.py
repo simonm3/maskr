@@ -14,7 +14,7 @@ def mold_meta(meta):
 
 def unmold_meta(meta):
     meta = list(meta.cpu().numpy())
-    return dict(window=meta[0])
+    return dict(window=meta[:4])
 
 def mold_image(image, config):
     """ Prepares RGB image with 0-255 values for input to model

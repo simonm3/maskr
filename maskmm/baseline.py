@@ -26,10 +26,10 @@ class Baseline:
 
     example:
         in main
-            from tracker import tracker
-            tracker.start("savepath")
+            from baseline import baseline
+            baseline.start("savepath")
         in module
-            from tracker import *
+            from baseline import *
             exposes save, saveall, load
     """
     # do nothing until start called
@@ -155,15 +155,12 @@ class Baseline:
         inputs = inspect.getfullargspec(func).args
         params = []
         for iname in inputs:
-            try:
-                params.append(self.load(f"{func.__name__}.{iname}_{index}"))
-            except:
-                pass
+            params.append(self.load(f"{func.__name__}.{iname}_{index}"))
         return params
 
     def load_results(self, func, index):
         " return results for run n "
-        results= glob(f"{self.path}/results/{func.__name__}.*_{index}")
+        results= sorted(glob(f"{self.path}/results/{func.__name__}.*_{index}"))
         return unlistify([self.load(r) for r in results])
 
 class Test:

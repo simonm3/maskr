@@ -28,7 +28,6 @@ def intersect1d(tensor1, tensor2):
 
 ###############################################
 
-@batch_slice(4, 3)
 def get_detections(rois, probs, deltas, image_meta, config):
     """Refine classified proposals and filter overlaps and return final
     detections.

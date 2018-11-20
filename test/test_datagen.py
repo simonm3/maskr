@@ -28,8 +28,10 @@ def test_build_rpn_targets(t, index):
 @pytest.mark.parametrize("index", range(4))
 def test_build_head_targets(t, index):
     def postLoad():
-        proposals, gt_class_ids, gt_boxes, gt_masks, config = t.inputs
-        t.inputs = [proposals, gt_class_ids, gt_boxes, gt_masks], config
+        rpn_rois, gt_class_ids, gt_boxes, gt_masks, config = t.inputs
+        h, w = config.IMAGE_SHAPE[:2]
+        scale = torch.tensor([h, w, h, w]).float()
+        gt_boxes = gt_boxes * scale
+        t.inputs = rpn_rois, gt_class_ids.float(), gt_boxes, gt_masks, config
     t.postLoad = postLoad
-
     t.run(model.detection_target_layer, build_head_targets)

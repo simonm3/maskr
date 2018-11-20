@@ -1,3 +1,9 @@
+"""
+use maskmm0 as baseline, maskmm as test for bs=1
+run maskmm as baseline, keras as test for bs>1 on functions that can be called e.g. loss
+keras cannot be used as baseline without rewriting build; and call does not accept decorators
+"""
+
 import tensorflow as tf
 from tensorflow import keras
 import tensorflow.contrib.eager as tfe

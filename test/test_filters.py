@@ -4,8 +4,9 @@ import torch
 from maskmm.baseline import Test, Baseline
 from maskmm.filters.proposals import proposals
 from maskmm.filters.roialign import roialign
-from maskmm.filters.detections import detections
+from maskmm.filters.detections import get_detections
 from .main import t
+from config import Config
 
 import logging
 log = logging.getLogger()
@@ -29,18 +30,14 @@ def test_roialign(t, index):
     t.postLoad = postLoad
     t.run(model.pyramid_roi_align, roialign)
 
-from config import Config
-class InferenceConfig(Config):
-    pass
-
 def test_detections():
     # detections baseline created from demo.py using single image
     base = Baseline("maskmm0_p")
     t = Test(base)
     def postLoad():
-        log.info(len(t.inputs))
         rois, probs, deltas, image_meta, config = t.inputs
         image_meta = torch.tensor(image_meta)
         t.inputs = rois, probs, deltas, image_meta, config
+        t.baseline.results = t.baseline.results[:, :4], t.baseline.results[:, 4], t.baseline.results[:, 5]
     t.postLoad = postLoad
-    t.run(model.refine_detections, detections)
+    t.run(model.refine_detections, get_detections)

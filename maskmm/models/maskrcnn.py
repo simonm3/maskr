@@ -15,6 +15,8 @@ from maskmm.filters.proposals import proposals
 from maskmm.filters.detections import get_detections
 from maskmm.filters.roialign import roialign
 
+from roi_align import ROIAlign
+
 from .rpn import RPN
 from .resnet import ResNet
 from .resnetFPN import FPN
