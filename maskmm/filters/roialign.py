@@ -24,6 +24,7 @@ def roialign(boxes, p2, p3, p4, p5, pool_size, image_shape):
     constructor.
     """
     if len(boxes)==0:
+        log.warning(boxes.shape)
         return torch.empty(0)
 
     # Feature Maps. List of feature maps from different level of the

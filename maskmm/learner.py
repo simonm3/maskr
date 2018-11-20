@@ -108,7 +108,6 @@ class Learner:
 
     def run_epoch(self, datagenerator, steps, mode):
         model = self.model
-        device = model.config.DEVICE
 
         batch_count = 0
         loss_sum = 0
@@ -120,18 +119,15 @@ class Learner:
         step = 0
 
         for inputs in datagenerator:
+            # skip invalid images
+            if inputs is None:
+                continue
+
             batch_count += 1
 
             # get data
             images, image_metas, tgt_rpn_match, tgt_rpn_bbox, gt_class_ids, gt_boxes, gt_masks = inputs[0]
             image_metas = image_metas.cpu().numpy()
-
-            save(images, "images")
-            save(gt_class_ids, "gt_class_ids")
-            save(gt_boxes, "gt_boxes")
-            ### UNSQUEEZE FOR COMPARISON WITH MASKMM0 HAS STRANGE LAST DIMENSION THAT IS NEVER USED?
-            save(tgt_rpn_match.unsqueeze(-1), "rpn_match")
-            save(tgt_rpn_bbox, "rpn_bbox")
 
             # Run object detection
             tgt_rpn_match, tgt_rpn_bbox,\

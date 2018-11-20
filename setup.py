@@ -11,14 +11,15 @@ params = dict(
     description='pytorch-mask-rcnn',
     version='0.0.0',
     url='https://github.com/simonm3/maskmm.git',
-    install_requires=['Pillow', 'PyYAML', 'analysis', 'cffi', 'h5py', 'ipython', 'matplotlib',
-                      'numpy', 'pandas', 'pycocotools', 'scikit_image', 'scipy', 'skimage', 'torch', 'tqdm'],
-    packages=['maskmm', 'maskmm.datagen', 'maskmm.datasets', 'maskmm.filters', 'maskmm.lib', 'maskmm.models', 'maskmm.utils', 'maskmm.datasets.coco', 'maskmm.datasets.nuke', 'maskmm.lib.nms',
-              'maskmm.lib.roialign', 'maskmm.lib.nms._ext', 'maskmm.lib.nms._ext.nms', 'maskmm.lib.roialign.roi_align', 'maskmm.lib.roialign.roi_align._ext', 'maskmm.lib.roialign.roi_align._ext.crop_and_resize'],
-    data_files=[('./etc/maskmm', ['.gitignore', 'LICENSE', 'README.md'])],
+    install_requires=['PyYAML', 'analysis', 'fastai', 'ipython', 'matplotlib',
+                      'numpy', 'pandas', 'pytest', 'scikit_image', 'scipy', 'skimage', 'tensorflow', 'torch'],
+    packages=['maskmm', 'maskmm.datagen', 'maskmm.filters', 'maskmm.lib', 'maskmm.models', 'maskmm.samples', 'maskmm.test', 'maskmm.utils', 'maskmm.lib.nms', 'maskmm.lib.roialign', 'maskmm.lib.nms._ext',
+              'maskmm.lib.nms._ext.nms', 'maskmm.lib.roialign.roi_align', 'maskmm.lib.roialign.roi_align._ext', 'maskmm.lib.roialign.roi_align._ext.crop_and_resize', 'maskmm.samples.nuke'],
+    data_files=[
+        ('./etc/maskmm', ['.gitignore', 'LICENSE', 'notes.txt', 'README.md'])],
     py_modules=[],
     include_package_data=True,
-    scripts=[])
+    scripts=None)
 
 ########## EDIT BELOW THIS LINE ONLY ##########
 

@@ -40,6 +40,9 @@ config.COMPAT for random numbers, dtypes
 set dataloader.num_workers=0, augment=False, shuffle=False
 GPU STILL HAS DIFFERENCES IN CONV
 
+samples undere maskmm for import
+nbs separate for download
+
 Testing
 =======
 

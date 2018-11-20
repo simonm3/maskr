@@ -7,7 +7,6 @@ import shutil
 import pickle
 import inspect
 from glob import glob
-import decorator
 
 import tensorflow as tf
 import torch

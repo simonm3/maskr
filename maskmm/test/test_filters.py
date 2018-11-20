@@ -1,12 +1,11 @@
 import pytest
 import model
 import torch
-from maskmm.baseline import Test, Baseline
 from maskmm.filters.proposals import proposals
 from maskmm.filters.roialign import roialign
 from maskmm.filters.detections import get_detections
-from .main import t
-from config import Config
+from maskmm.test.main import t
+from maskmm.config import Config
 
 import logging
 log = logging.getLogger()

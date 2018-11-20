@@ -29,6 +29,8 @@ def pad(x, shape):
     # format for torch pad to pad at bottom
     padding = reversed([(0, p) for p in padding])
     padding = np.concatenate(list(padding)).tolist()
+    if (np.array(padding)==0).all():
+        return x
     return torch.nn.functional.pad(x, padding)
 
 def pack(variables):

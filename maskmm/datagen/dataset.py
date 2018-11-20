@@ -155,7 +155,6 @@ class Dataset(Dataset):
 
     def __getitem__(self, image_index):
         """ return image, rpn_targets and ground truth """
-
         image_id = self.image_ids[image_index]
         image, image_metas, gt_class_ids, gt_boxes, gt_masks = \
             self.load_image_gt(image_id, use_mini_mask=self.config.USE_MINI_MASK)
