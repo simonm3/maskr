@@ -15,8 +15,6 @@ from maskmm.filters.proposals import proposals
 from maskmm.filters.detections import get_detections
 from maskmm.filters.roialign import roialign
 
-from roi_align import ROIAlign
-
 from .rpn import RPN
 from .resnet import ResNet
 from .resnetFPN import FPN
@@ -112,6 +110,10 @@ class MaskRCNN(nn.Module):
 
         if targets:
             # Subsample proposals, generate target outputs for training and filter rois
+            from maskmm.utils.batch import unpack
+            xclass, xmasks = unpack([gt_class_ids, gt_masks])
+            if len(xclass[0])==27:
+                print(xmasks[0].shape)
             with torch.no_grad():
                 rois, target_class_ids, target_deltas, target_mask = \
                     build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)

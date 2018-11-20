@@ -227,6 +227,12 @@ class Dataset(Dataset):
         # convert [h,w,N] to [N,h,w] to align with other inputs having N first
         mask = mask.permute(2, 0, 1).float()
 
+        # remove any empty masks
+        ix = mask.gt(0).nonzero()[:, 0].unique()
+        mask = mask[ix]
+        class_ids = class_ids[ix]
+        bbox = bbox[ix]
+
         # todo move to dataloader and use pad_length
         # zeropad so dataloader can stack batch. rpn_match and rpn_bbox already padded
         class_ids = batch.pad(class_ids, self.config.MAX_GT_INSTANCES)
