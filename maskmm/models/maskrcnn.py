@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.utils.data
 
 from maskmm.utils import image_utils
-from maskmm.utils.batch import batch_slice
+from maskmm.utils.batch import batch_slice, unbatch
 
 from maskmm.datagen.head_targets import build_head_targets
 from maskmm.filters.proposals import proposals
@@ -30,15 +30,13 @@ class MaskRCNN(nn.Module):
     """Encapsulates the Mask RCNN model functionality.
     """
 
-    def __init__(self, config, model_dir):
+    def __init__(self, config):
         """
         config: A Sub-class of the Config class
         model_dir: Directory to save training logs and trained weights
         """
         super().__init__()
         self.config = config
-        self.model_dir = model_dir
-        self.set_log_dir()
 
         # Image size must be dividable by 2 multiple times
         h, w = config.IMAGE_SHAPE[:2]
@@ -102,34 +100,47 @@ class MaskRCNN(nn.Module):
         # Generate proposals [batch, N, (y1, x1, y2, x2)] in normalized coordinates, zero padded.
         proposal_count = config.POST_NMS_ROIS_TRAINING if self.training \
             else config.POST_NMS_ROIS_INFERENCE
-        rpn_rois = proposals(rpn_class, rpn_bbox, proposal_count=proposal_count, config=config)
+        rois = proposals(rpn_class, rpn_bbox, proposal_count=proposal_count, config=config)
 
         if not config.HEAD:
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                              rpn_class_logits, rpn_bbox, 0,0,0,0,0,0])
 
         if targets:
-            # Subsample proposals, generate target outputs for training and filter rois
+            # Filter proposals to get target proportion of positive rois; and get targets
             with torch.no_grad():
                 rois, target_class_ids, target_deltas, target_mask = \
-                    build_head_targets(rpn_rois, gt_class_ids, gt_boxes, gt_masks, config)
-        else:
-            rois = rpn_rois
+                    build_head_targets(rois, gt_class_ids, gt_boxes, gt_masks, config)
 
-        # class head
-        x = roialign(rois, *feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
-        mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
+                # combine batch/rois dimension for head
+                target_class_ids, target_deltas, target_mask = unbatch(target_class_ids, target_deltas, target_mask)
 
-        if targets:
+                if not len(target_class_ids):
+                    log.warning("no rois")
+                    return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
+                                     rpn_class_logits, rpn_bbox, \
+                                     target_class_ids, target_deltas, target_mask, \
+                                     torch.empty(0), torch.empty(0, 4), torch.empty(0, 4)])
+
+            # class head
+            x = roialign(rois, *feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
+            x = unbatch(x)
+            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = self.classifier(x)
+
             # mask head
             x = roialign(rois, *feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
-            mrcnn_mask = batch_slice()(self.mask)(x)
+            x = unbatch(x)
+            mrcnn_mask = self.mask(x)
 
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                              rpn_class_logits, rpn_bbox, \
                              target_class_ids, target_deltas, target_mask, \
                              mrcnn_class_logits, mrcnn_deltas, mrcnn_mask])
         else:
+            # class head
+            x = roialign(rois, *feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
+            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
+
             # detections filter speeds inference and improves accuracy (see maskrcnn paper)
             #### putting this after mask head is much worse!!!
             # boxes are image domain for output. rois are as above but filtered i.e. suitable for mask head.
@@ -198,68 +209,6 @@ class MaskRCNN(nn.Module):
             if not trainable:
                 param[1].requires_grad = False
 
-    def set_log_dir(self, model_path=None):
-        """Sets the model log directory and epoch counter.
-
-        model_path: If None, or a format different from what this code uses
-            then set a new log directory and start epochs from 0. Otherwise,
-            extract the log directory and the epoch counter from the file
-            name.
-        """
-
-        # Set date and epoch counter as if starting a new model
-        self.epoch = 0
-        now = datetime.datetime.now()
-
-        # If we have a model path with date and epochs use them
-        if model_path:
-            # Continue from we left of. Get epoch and date from the file name
-            # A sample model path might look like:
-            # /path/to/logs/coco20171029T2315/mask_rcnn_coco_0001.h5
-            regex = r".*/\w+(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})/mask\_rcnn\_\w+(\d{4})\.pth"
-            m = re.match(regex, model_path)
-            if m:
-                now = datetime.datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)),
-                                        int(m.group(4)), int(m.group(5)))
-                self.epoch = int(m.group(6))
-
-        # Directory for training logs
-        self.log_dir = os.path.join(self.model_dir,
-                                    f"{self.config.NAME.lower()}{datetime.datetime.now().strftime('%Y%m%d_%H%M')}")
-        os.makedirs(self.log_dir, exist_ok=True)
-
-        # Path to save after each epoch. Include placeholders that get filled by Keras.
-        self.checkpoint_path = os.path.join(self.log_dir,
-                                            "mask_rcnn_{}_*epoch*.pth".format(
-                                                self.config.NAME.lower()))
-        self.checkpoint_path = self.checkpoint_path.replace(
-            "*epoch*", "{:04d}")
-
-    def find_last(self):
-        """Finds the last checkpoint file of the last trained model in the
-        model directory.
-        Returns:
-            log_dir: The directory where events and weights are saved
-            checkpoint_path: the path to the last checkpoint file
-        """
-        # Get directory names. Each directory corresponds to a model
-        dir_names = next(os.walk(self.model_dir))[1]
-        key = self.config.NAME.lower()
-        dir_names = filter(lambda f: f.startswith(key), dir_names)
-        dir_names = sorted(dir_names)
-        if not dir_names:
-            return None, None
-        # Pick last directory
-        dir_name = os.path.join(self.model_dir, dir_names[-1])
-        # Find the last checkpoint
-        checkpoints = next(os.walk(dir_name))[2]
-        checkpoints = filter(lambda f: f.startswith("mask_rcnn"), checkpoints)
-        checkpoints = sorted(checkpoints)
-        if not checkpoints:
-            return dir_name, None
-        checkpoint = os.path.join(dir_name, checkpoints[-1])
-        return dir_name, checkpoint
-
     def load_weights(self, filepath):
         """Modified version of the correspoding Keras function with
         the addition of multi-GPU support and the ability to exclude
@@ -271,8 +220,3 @@ class MaskRCNN(nn.Module):
             self.load_state_dict(state_dict, strict=False)
         else:
             print("Weight file not found ...")
-
-        # Update the log directory
-        self.set_log_dir(filepath)
-        if not os.path.exists(self.log_dir):
-            os.makedirs(self.log_dir)

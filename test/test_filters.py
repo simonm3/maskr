@@ -4,8 +4,6 @@ import torch
 from maskmm.filters.proposals import proposals
 from maskmm.filters.roialign import roialign
 from maskmm.filters.detections import get_detections
-from maskmm.test.main import t
-from maskmm.config import Config
 
 import logging
 log = logging.getLogger()

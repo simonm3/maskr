@@ -155,7 +155,7 @@ class Dataset(Dataset):
 
     def __getitem__(self, image_index):
         """ return image, rpn_targets and ground truth """
-        image_id = self.image_ids[image_index]
+        image_id = self.image_ids[image_index+75]
         image, image_metas, gt_class_ids, gt_boxes, gt_masks = \
             self.load_image_gt(image_id, use_mini_mask=self.config.USE_MINI_MASK)
 
@@ -193,7 +193,7 @@ class Dataset(Dataset):
             defined in MINI_MASK_SHAPE.
         """
         # Load image and mask
-        image = self.load_image(image_id)
+        image = self.load_image(image_id+70)
         mask, class_ids = self.load_mask(image_id)
         class_ids = torch.tensor(class_ids, dtype=torch.float)
 

@@ -59,7 +59,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
     # Compute overlaps matrix [proposals, gt_boxes]
     overlaps = box_utils.compute_overlaps(proposals, gt_boxes)
 
-    # Determine postive and negative ROIs
+    # Determine positive and negative ROIs
     roi_iou_max = torch.max(overlaps, dim=1)[0]
 
     # 1. Positive ROIs are those with >= 0.5 IoU with a GT box
@@ -156,7 +156,9 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         # needs to be right shape for stacking. others are cat.
         rois = torch.empty(0, 4)
         roi_gt_class_ids = torch.empty(0)
-        deltas = torch.empty(0)
-        masks = torch.empty(0)
+        deltas = torch.empty(0, 4)
+        masks = torch.empty(0, *config.MASK_SHAPE)
+
+    log.info([x.shape for x in [rois, roi_gt_class_ids, deltas, masks]])
 
     return rois, roi_gt_class_ids, deltas, masks

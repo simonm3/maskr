@@ -76,7 +76,7 @@ def mrcnn_class(target_class_ids, pred_class_logits):
         padding to fill in the numpy.
     pred_class_logits: [batch, num_rois, num_classes]
     """
-    target_class_ids, pred_class_logits = unbatch(target_class_ids, pred_class_logits)
+    #target_class_ids, pred_class_logits = unbatch(target_class_ids, pred_class_logits)
 
     # todo align sizes and comments in this file e.g. 2 images/batch => 138 ROIS
     if len(target_class_ids):
@@ -97,7 +97,7 @@ def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
     # todo review what is zeropadded and where
 
     # todo bs>1. need to do all the below for each batch OR vectorize
-    target_bbox, target_class_ids, pred_bbox = unbatch(target_bbox, target_class_ids, pred_bbox)
+    #target_bbox, target_class_ids, pred_bbox = unbatch(target_bbox, target_class_ids, pred_bbox)
 
     if len(target_class_ids):
         # Only positive ROIs contribute to the loss. And only
@@ -130,7 +130,7 @@ def mrcnn_mask(target_masks, target_class_ids, pred_masks):
     """
     # todo bs>1. need to do all the below for each batch OR vectorize
 
-    target_masks, target_class_ids, pred_masks = unbatch(target_masks, target_class_ids, pred_masks)
+    #target_masks, target_class_ids, pred_masks = unbatch(target_masks, target_class_ids, pred_masks)
 
     if len(target_class_ids):
         # Only positive ROIs contribute to the loss. And only
