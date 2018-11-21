@@ -112,7 +112,7 @@ class MaskRCNN(nn.Module):
                 log.info(rois.shape)
                 rois, target_class_ids, target_deltas, target_mask = \
                     build_head_targets(rois, gt_class_ids, gt_boxes, gt_masks, config)
-
+                log.info(rois.shape)
                 # combine batch/rois dimension for head
                 target_class_ids, target_deltas, target_mask = unbatch(target_class_ids, target_deltas, target_mask)
 
