@@ -76,8 +76,6 @@ def mrcnn_class(target_class_ids, pred_class_logits):
         padding to fill in the numpy.
     pred_class_logits: [batch, num_rois, num_classes]
     """
-    #target_class_ids, pred_class_logits = unbatch(target_class_ids, pred_class_logits)
-
     # todo align sizes and comments in this file e.g. 2 images/batch => 138 ROIS
     if len(target_class_ids):
         loss = F.cross_entropy(pred_class_logits, target_class_ids.long())
@@ -94,11 +92,6 @@ def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
     target_class_ids: [batch, num_rois]. Integer class IDs.
     pred_bbox: [batch, num_rois, num_classes, (dy, dx, log(dh), log(dw))]
     """
-    # todo review what is zeropadded and where
-
-    # todo bs>1. need to do all the below for each batch OR vectorize
-    #target_bbox, target_class_ids, pred_bbox = unbatch(target_bbox, target_class_ids, pred_bbox)
-
     if len(target_class_ids):
         # Only positive ROIs contribute to the loss. And only
         # the right class_id of each ROI. Get their indicies.
@@ -128,10 +121,6 @@ def mrcnn_mask(target_masks, target_class_ids, pred_masks):
     pred_masks: [batch, proposals, height, width, num_classes] float32 tensor
                 with values from 0 to 1.
     """
-    # todo bs>1. need to do all the below for each batch OR vectorize
-
-    #target_masks, target_class_ids, pred_masks = unbatch(target_masks, target_class_ids, pred_masks)
-
     if len(target_class_ids):
         # Only positive ROIs contribute to the loss. And only
         # the class specific mask of each ROI.
