@@ -109,6 +109,7 @@ class MaskRCNN(nn.Module):
         if targets:
             # Filter proposals to get target proportion of positive rois; and get targets
             with torch.no_grad():
+                log.info(rois.shape)
                 rois, target_class_ids, target_deltas, target_mask = \
                     build_head_targets(rois, gt_class_ids, gt_boxes, gt_masks, config)
 

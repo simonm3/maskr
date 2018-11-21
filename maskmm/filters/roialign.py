@@ -23,10 +23,6 @@ def roialign(boxes, p2, p3, p4, p5, pool_size, image_shape):
     The width and height are those specific in the pool_shape in the layer
     constructor.
     """
-    if len(boxes)==0:
-        log.warning(boxes.shape)
-        return torch.empty(0, 4)
-
     # Feature Maps. List of feature maps from different level of the
     # feature pyramid. Each is [batch, height, width, channels]
     feature_maps = [p2,p3,p4,p5]
@@ -44,7 +40,6 @@ def roialign(boxes, p2, p3, p4, p5, pool_size, image_shape):
     roi_level = 4 + torch.log2(torch.sqrt(h*w)/(224.0/torch.sqrt(image_area)))
     roi_level = roi_level.round().int()
     roi_level = roi_level.clamp(2,5)
-
 
     # Loop through levels and apply ROI pooling to each. P2 to P5.
     pooled = []

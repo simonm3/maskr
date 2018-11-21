@@ -133,7 +133,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         negative_count = 0
 
     # Append negative ROIs and pad bbox deltas and masks that
-    # are not used for negative ROIs with zeros.
+    # are not used for negative ROIs with zeros
     if positive_count > 0 and negative_count > 0:
         rois = torch.cat((positive_rois, negative_rois), dim=0)
         zeros = torch.zeros(negative_count).float()

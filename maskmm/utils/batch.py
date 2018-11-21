@@ -5,6 +5,7 @@ log = logging.getLogger()
 import numpy as  np
 
 def unbatch(*vars):
+    """ combine first 2 dimensions of each var """
     return unlistify([x.reshape(-1, *x.shape[2:]) for x in vars])
 
 def listify(x):
