@@ -109,10 +109,9 @@ class MaskRCNN(nn.Module):
         if targets:
             # Filter proposals to get target proportion of positive rois; and get targets
             with torch.no_grad():
-                log.info(rois.shape)
                 rois, target_class_ids, target_deltas, target_mask = \
                     build_head_targets(rois, gt_class_ids, gt_boxes, gt_masks, config)
-                log.info(rois.shape)
+
                 # combine batch/rois dimension for head
                 target_class_ids, target_deltas, target_mask = unbatch(target_class_ids, target_deltas, target_mask)
 
@@ -121,7 +120,7 @@ class MaskRCNN(nn.Module):
                     return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                                      rpn_class_logits, rpn_bbox, \
                                      target_class_ids, target_deltas, target_mask, \
-                                     torch.empty(0), torch.empty(0, 4), torch.empty(0, 4)])
+                                     torch.empty(0), torch.empty(0), torch.empty(0)])
 
             # class head
             x = roialign(rois, *feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
@@ -140,7 +139,8 @@ class MaskRCNN(nn.Module):
         else:
             # class head
             x = roialign(rois, *feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
-            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
+            x = unbatch(x)
+            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = self.classifier(x)
 
             # detections filter speeds inference and improves accuracy (see maskrcnn paper)
             #### putting this after mask head is much worse!!!
@@ -149,7 +149,8 @@ class MaskRCNN(nn.Module):
 
             # mask head
             x = roialign(rois, *feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
-            masks = batch_slice()(self.mask)(x)
+            x = unbatch(x)
+            masks = self.mask(x)
 
             return boxes, class_ids, scores, masks
 

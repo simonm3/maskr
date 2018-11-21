@@ -38,8 +38,8 @@ def get_data(config):
     val_ds.load_nuke(trainpath, "valid")
     val_ds.prepare()
 
-    train_gen = torch.utils.data.DataLoader(train_ds, batch_size=config.BATCH_SIZE, shuffle=config.SHUFFLE,
-                                            num_workers=0)
+    train_gen = torch.utils.data.DataLoader(train_ds, batch_size=config.BATCH_SIZE,
+                                            shuffle=config.SHUFFLE, num_workers=0)
     val_gen = torch.utils.data.DataLoader(val_ds, batch_size=config.BATCH_SIZE, num_workers=0)
     data = DataBunch(train_gen, val_gen)
 

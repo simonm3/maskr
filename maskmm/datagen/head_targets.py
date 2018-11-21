@@ -157,8 +157,6 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         rois = torch.empty(0, 4)
         roi_gt_class_ids = torch.empty(0)
         deltas = torch.empty(0, 4)
-        masks = torch.empty(0, *config.MASK_SHAPE)
-
-    log.info([x.shape for x in [rois, roi_gt_class_ids, deltas, masks]])
+        masks = torch.empty(0, *config.MASK_SHAPE[:2])
 
     return rois, roi_gt_class_ids, deltas, masks
