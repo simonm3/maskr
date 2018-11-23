@@ -112,9 +112,6 @@ class MaskRCNN(nn.Module):
                 rois, target_class_ids, target_deltas, target_mask = \
                     build_head_targets(rois, gt_class_ids, gt_boxes, gt_masks, config)
 
-                # combine batch/rois dimension for head
-                target_class_ids, target_deltas, target_mask = unbatch(target_class_ids, target_deltas, target_mask)
-
                 if not len(target_class_ids):
                     log.warning("no rois")
                     return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
@@ -124,18 +121,15 @@ class MaskRCNN(nn.Module):
 
             # class head
             x = roialign(rois, *feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
-            x = unbatch(x)
-            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = self.classifier(x)
+            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
 
             # mask head
             x = roialign(rois, *feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
-            x = unbatch(x)
-            mrcnn_mask = self.mask(x)
+            mrcnn_mask = batch_slice()(self.mask)(x)
 
-            return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
-                             rpn_class_logits, rpn_bbox, \
-                             target_class_ids, target_deltas, target_mask, \
-                             mrcnn_class_logits, mrcnn_deltas, mrcnn_mask])
+            return dict(out=[tgt_rpn_match, tgt_rpn_bbox, rpn_class_logits, rpn_bbox] +
+                             unbatch(target_class_ids, target_deltas, target_mask,
+                                     mrcnn_class_logits, mrcnn_deltas, mrcnn_mask))
         else:
             # class head
             x = roialign(rois, *feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
