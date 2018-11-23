@@ -10,7 +10,11 @@ import warnings
 warnings.filterwarnings('ignore', '.*output shape of zoom.*')
 
 def mold_meta(meta):
-    return torch.tensor(list(meta.values()))
+    """ flatten dict values """
+    out = []
+    for x in meta.values():
+        out.extend(x)
+    return torch.tensor(out)
 
 def unmold_meta(meta):
     meta = list(meta.cpu().numpy())

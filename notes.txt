@@ -1,5 +1,12 @@
-AS FEW CHANGES AS POSSIBLE TO MASKMM0
-=====================================
+matterport
+==========
+
+v2.1
+change topology to saving
+add nuke_train.pynb
+
+MASKMM0
+=======
 
 ##### update to pytorch 1
 replace data.cpu()[0], item()
@@ -43,20 +50,17 @@ GPU STILL HAS DIFFERENCES IN CONV
 samples undere maskmm for import
 nbs separate for download
 
-Testing
-=======
+Test steps
+==========
 
-test on a single image
-    inputs from dataset/dataload
-    targets - rpn, anchors, target masks and boxes
+datagen
+    inputs
+    targets
+prediction
+training
     forward loss
-    check pre-step weights, grad
-    check post step weights
-test more images (as above)
-train convergence
-bs>1
+    pre-step weights, grad
+    post step weights
 
-##### runs 10% faster on GPU - likely due to numpy=> pytorch
-##### similar accuracy. needs longer test run
 #### num_workers>0 fails
 

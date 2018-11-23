@@ -139,18 +139,18 @@ class MaskRCNN(nn.Module):
         else:
             # class head
             x = roialign(rois, *feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
-            x = unbatch(x)
-            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = self.classifier(x)
+
+            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
 
             # detections filter speeds inference and improves accuracy (see maskrcnn paper)
             #### putting this after mask head is much worse!!!
             # boxes are image domain for output. rois are as above but filtered i.e. suitable for mask head.
-            boxes, class_ids, scores, rois = get_detections(rois, mrcnn_probs, mrcnn_deltas, image_metas, config)
+            boxes, class_ids, scores, rois = batch_slice(4, 3)\
+                            (get_detections)(rois, mrcnn_probs, mrcnn_deltas, image_metas, config)
 
             # mask head
             x = roialign(rois, *feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
-            x = unbatch(x)
-            masks = self.mask(x)
+            masks = batch_slice()(self.mask)(x)
 
             return boxes, class_ids, scores, masks
 
@@ -158,6 +158,8 @@ class MaskRCNN(nn.Module):
         """ predict list of images without targets, bypassing dataset """
         if not isinstance(images, list):
             images = [images]
+
+        self.eval()
 
         # prepare inputs without using dataset
         molded_images = []

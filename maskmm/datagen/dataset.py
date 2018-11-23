@@ -25,7 +25,7 @@ class Dataset(Dataset):
     See COCODataset and ShapesDataset as examples.
     """
 
-    def __init__(self, config, class_map=None):
+    def __init__(self, config):
         self.config = config
         self._image_ids = []
         self.image_info = []
@@ -67,10 +67,8 @@ class Dataset(Dataset):
         """
         return ""
 
-    def prepare(self, class_map=None):
+    def prepare(self):
         """Prepares the Dataset class for use.
-        TODO: class map is not supported yet. When done, it should handle mapping
-              classes from different datasets to the same class ID.
         """
         def clean_name(name):
             """Returns a shorter version of object names for cleaner display."""

@@ -192,7 +192,6 @@ class Config(object):
 
     def __init__(self):
         """Set values of computed attributes."""
-
         # default weights is pretrained coco
         self.WEIGHTS = os.path.abspath(join(os.path.dirname(__file__),
                                        os.pardir, "data/models",
