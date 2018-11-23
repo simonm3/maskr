@@ -1,5 +1,4 @@
 import torch.nn as nn
-from maskmm.filters.roialign import roialign
 from .samepad2d import SamePad2d
 
 from maskmm.baseline import saveall, save

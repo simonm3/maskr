@@ -23,7 +23,7 @@ def get_data(config):
     # create validation sample
     pvalid = .2
     trainpath = join(DATA, "stage1_train")
-    df = pd.DataFrame(os.listdir(trainpath)[:9], columns=["image"])
+    df = pd.DataFrame(os.listdir(trainpath), columns=["image"])
     train = np.random.random(len(df))>pvalid
     df.loc[train, "subset"] = "train"
     df.loc[~train, "subset"] = "valid"
@@ -39,13 +39,17 @@ def get_data(config):
     val_ds.prepare()
 
     train_gen = torch.utils.data.DataLoader(train_ds, batch_size=config.BATCH_SIZE,
-                                            shuffle=config.SHUFFLE, num_workers=0)
-    val_gen = torch.utils.data.DataLoader(val_ds, batch_size=config.BATCH_SIZE, num_workers=0)
-    data = DataBunch(train_gen, val_gen)
+                                            shuffle=config.SHUFFLE, num_workers=config.WORKERS)
+    val_gen = torch.utils.data.DataLoader(val_ds, batch_size=config.BATCH_SIZE, num_workers=config.WORKERS)
+    data = DataBunch(train_gen, val_gen, device=config.DEVICE)
 
     return data
 
 def get_model(config):
+    # this must be after the dataset
+    #if config.GPU_COUNT > 0:
+    #    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+
     # Pre-defined layer regular expressions
     layer_regex = {
         # all layers but the backbone
@@ -61,6 +65,7 @@ def get_model(config):
 
     model = MaskRCNN(config=config)
     model.initialize_weights()
+    model.to(config.DEVICE)
 
     # load pretrained except final layers that depend on NUM_CLASSES
     params = torch.load(COCO_MODEL_PATH)
@@ -88,6 +93,8 @@ def get_learn(config):
     model = get_model(config)
 
     callback_fns = [Multiloss, BnFreeze, partial(GradientClipping, clip=5), ShowGraph]
+    if config.DEVICE=="cuda":
+        callback_fns.append(Cuda)
     # callback_fns.extend([Batch_begin_save, Back_end_save, Step_end_save])
     if config.COMPAT:
         callback_fns.append(StrictBnFreeze)

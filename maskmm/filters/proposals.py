@@ -10,7 +10,7 @@ log = logging.getLogger()
 
 @saveall
 @batch_slice(2)
-def proposals(rpn_class, rpn_bbox, proposal_count, config):
+def proposals(rpn_class, rpn_bbox, proposal_count, anchors, config):
     """Receives anchor scores and selects a subset to pass as proposals
        to the second stage. Filtering is done based on anchor scores and
        non-max suppression to remove overlaps. It also applies bounding
@@ -25,8 +25,6 @@ def proposals(rpn_class, rpn_bbox, proposal_count, config):
        """
     # Box Scores. Use the foreground class confidence. [Batch, num_rois, 1]
     rpn_class = rpn_class[:, 1]
-
-    anchors = config.ANCHORS
 
     # standardise
     std_dev = torch.tensor(config.RPN_BBOX_STD_DEV).float().reshape([1,4])

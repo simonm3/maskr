@@ -1,8 +1,6 @@
-import datetime
 import os
 import re
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.utils.data
@@ -12,7 +10,7 @@ from maskmm.utils.batch import batch_slice, unbatch
 
 from maskmm.datagen.head_targets import build_head_targets
 from maskmm.filters.proposals import proposals
-from maskmm.filters.detections import get_detections
+from maskmm.filters.detections import detections
 from maskmm.filters.roialign import roialign
 
 from .rpn import RPN
@@ -37,6 +35,9 @@ class MaskRCNN(nn.Module):
         """
         super().__init__()
         self.config = config
+
+        # must be on same device as model
+        self.anchors = config.ANCHORS.to(config.DEVICE)
 
         # Image size must be dividable by 2 multiple times
         h, w = config.IMAGE_SHAPE[:2]
@@ -100,7 +101,7 @@ class MaskRCNN(nn.Module):
         # Generate proposals [batch, N, (y1, x1, y2, x2)] in normalized coordinates, zero padded.
         proposal_count = config.POST_NMS_ROIS_TRAINING if self.training \
             else config.POST_NMS_ROIS_INFERENCE
-        rois = proposals(rpn_class, rpn_bbox, proposal_count=proposal_count, config=config)
+        rois = proposals(rpn_class, rpn_bbox, proposal_count, self.anchors, config=config)
 
         if not config.HEAD:
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
@@ -146,7 +147,7 @@ class MaskRCNN(nn.Module):
             #### putting this after mask head is much worse!!!
             # boxes are image domain for output. rois are as above but filtered i.e. suitable for mask head.
             boxes, class_ids, scores, rois = batch_slice(4, 3)\
-                            (get_detections)(rois, mrcnn_probs, mrcnn_deltas, image_metas, config)
+                            (detections)(rois, mrcnn_probs, mrcnn_deltas, image_metas, config)
 
             # mask head
             x = roialign(rois, *feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)

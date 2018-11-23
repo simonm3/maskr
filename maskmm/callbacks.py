@@ -40,6 +40,21 @@ class Multiloss(Callback):
 
         return total
 
+class Cuda(LearnerCallback):
+    """ sets default tensors to config.DEVICE except during dataloader """
+    def on_train_begin(self, **kwargs:Any):
+        # reset cuda at start of training
+        torch.set_default_tensor_type(torch.FloatTensor)
+
+    def on_batch_begin(self, **kwargs:Any):
+        # set cuda after dataloader initialised. any earlier causes cuda error if workers>0
+        if self.learn.model.config.DEVICE=="cuda":
+            torch.set_default_tensor_type(torch.cuda.FloatTensor)
+
+    def on_batch_end(self, **kwargs:Any):
+        # reset cuda before validation
+        torch.set_default_tensor_type(torch.FloatTensor)
+
 ###### save checkpoint objects ##############################################################
 
 class Batch_begin_save(LearnerCallback):

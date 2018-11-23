@@ -154,15 +154,14 @@ class Dataset(Dataset):
     def __getitem__(self, image_index):
         """ return image, rpn_targets and ground truth """
         image_id = self.image_ids[image_index]
+
+        # load gt
         image, image_metas, gt_class_ids, gt_boxes, gt_masks = \
-            self.load_image_gt(image_id, use_mini_mask=self.config.USE_MINI_MASK)
+            self.load_image_gt(image_id)
 
         # If no instances then skip. e.g. image has none of classes we care about.
         if gt_class_ids.eq(0).all():
             return None
-
-        # image
-        image = image_utils.mold_image(image, self.config)
 
         # rpn_targets
         rpn_match, rpn_bbox = build_rpn_targets(self.config.ANCHORS, gt_class_ids, gt_boxes, self.config)
@@ -172,7 +171,7 @@ class Dataset(Dataset):
     def __len__(self):
         return len(self.image_ids)
 
-    def load_image_gt(self, image_id, use_mini_mask=False):
+    def load_image_gt(self, image_id):
         """Load and return ground truth data for an image (image, mask, bounding boxes).
 
         use_mini_mask: If False, returns full-size masks that are the same height
@@ -211,11 +210,14 @@ class Dataset(Dataset):
         if self.augment:
             image, mask = image_utils.augment(image, mask)
 
+        # image
+        image = image_utils.mold_image(image, self.config)
+
         # Bounding boxes. some boxes might be all zeros if the corresponding mask got cropped out
         bbox = box_utils.extract_bboxes(mask)
 
         # compress masks to reduce memory usage
-        if use_mini_mask:
+        if self.config.USE_MINI_MASK:
             mask = image_utils.minimize_mask(bbox, mask, self.config.MINI_MASK_SHAPE)
         mask = torch.tensor(mask.astype(int))
         # make float to enable log function
