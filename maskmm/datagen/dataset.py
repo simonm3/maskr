@@ -219,7 +219,12 @@ class Dataset(Dataset):
         # compress masks to reduce memory usage
         if self.config.USE_MINI_MASK:
             mask = image_utils.minimize_mask(bbox, mask, self.config.MINI_MASK_SHAPE)
-        mask = torch.tensor(mask.astype(int))
+        try:
+            mask = torch.tensor(mask.astype(int))
+        except:
+            from maskmm.baseline import ftype
+            log.info(mask)
+            log.info(ftype(mask))
         # make float to enable log function
         bbox = bbox.float()
 

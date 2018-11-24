@@ -29,6 +29,7 @@ def mold_image(image, config):
     else:
         image = image - config.MEAN_PIXEL
         image = torch.tensor(image)
+    # channel first
     image = image.permute(2, 0, 1).float()
     return image
 
@@ -58,8 +59,8 @@ def resize_image(image, config):
     padding: Padding added to the image [(top, bottom), (left, right), (0, 0)]
     """
     # Default window (y1, x1, y2, x2) and default scale == 1.
-    min_dim = config.IMAGE_MIN_DIM
-    max_dim = config.IMAGE_MAX_DIM
+    min_dim = min(config.IMAGE_SHAPE)
+    max_dim = max(config.IMAGE_SHAPE)
     padding = config.IMAGE_PADDING
 
     h, w = image.shape[:2]
