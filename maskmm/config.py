@@ -51,7 +51,7 @@ class Config(object):
 
     WORKERS = os.cpu_count()
     BATCH_SIZE = 1
-    AUGMENT = True
+    AUGMENT = False
     SHUFFLE = True
 
 ####### training ##################################################################
