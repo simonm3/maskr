@@ -40,9 +40,8 @@ class Multiloss(LearnerCallback):
         return total
 
 class Cuda(LearnerCallback):
-    """ sets default tensors during training/validation to config.DEVICE
-    sets to cpu for train/valid dataloader as cuda does not work with multiprocessing workers>0)
-    """
+    " sets config device during training/validation. Resets to CPU for dataloader as multiprocessing hangs cuda "
+
     def on_train_begin(self, **kwargs:Any):
         # use cpu for train dataloader
         torch.set_default_tensor_type(torch.FloatTensor)

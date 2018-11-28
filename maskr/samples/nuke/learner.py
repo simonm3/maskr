@@ -10,16 +10,9 @@ MODEL_DIR = os.path.join(ROOT_DIR, "logs")
 COCO_MODEL_PATH = os.path.join(ROOT_DIR, "data/models/mask_rcnn_coco.pth")
 DATA = join(expanduser("~"), "data", "nuke")
 
-class Learner(Learner):
-    def fit(self, epochs, lr=None, callbacks=None):
-        """ fit with model optimizer rather than passing a function """
-        if lr:
-            self.opt.lr = self.lr_range(lr)
-        callbacks = [cb(self) for cb in self.callback_fns] + listify(callbacks)
-        fit(epochs, self.model, self.loss_func, opt=self.opt, data=self.data, metrics=self.metrics,
-            callbacks=self.callbacks+callbacks)
-
 def get_data(config):
+    " return a databunch based on config"
+
     # create validation sample
     pvalid = .2
     trainpath = join(DATA, "stage1_train")
@@ -46,6 +39,8 @@ def get_data(config):
     return data
 
 def get_model(config):
+    " return a model based on config "
+
     # define model
     model = MaskRCNN(config=config)
     model.initialize_weights()
@@ -75,26 +70,21 @@ def get_model(config):
     layers = layer_regex["heads"]
     model.set_trainable(layers)
 
-    # define optimizer
-    learning_rate = .01
-    trainables_wo_bn = [param for name, param in model.named_parameters() if
-                        param.requires_grad and not 'bn' in name]
-    trainables_only_bn = [param for name, param in model.named_parameters() if param.requires_grad and 'bn' in name]
-    model.optimizer = torch.optim.SGD([
-        {'params': trainables_wo_bn, 'weight_decay': model.config.WEIGHT_DECAY},
-        {'params': trainables_only_bn}
-    ], lr=learning_rate, momentum=model.config.LEARNING_MOMENTUM)
     return model
 
 def get_learn(config):
     data = get_data(config)
     model = get_model(config)
 
+    # add callbacks
     callback_fns = [Multiloss, BnFreeze, partial(GradientClipping, clip=5), ShowGraph, TrainSave]
     if config.DEVICE=="cuda":
         callback_fns.append(Cuda)
     if config.COMPAT:
         callback_fns.append(StrictBnFreeze)
-    learn = Learner(data, model, callback_fns=callback_fns, loss_func=lambda x, *y: x)
-    learn.opt = OptimWrapper(model.optimizer)
+
+    # define optimizer
+    opt_func = partial(torch.optim.SGD, momentum=model.config.LEARNING_MOMENTUM)
+
+    learn = Learner(data, model, callback_fns=callback_fns, loss_func=lambda x, *y: x, opt_func=opt_func)
     return learn

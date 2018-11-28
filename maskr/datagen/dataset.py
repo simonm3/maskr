@@ -166,7 +166,8 @@ class Dataset(Dataset):
         # rpn_targets
         rpn_match, rpn_bbox = build_rpn_targets(self.config.ANCHORS, gt_class_ids, gt_boxes, self.config)
 
-        return [image, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks], torch.tensor(0)
+        # fastai requires a "y" and must be nonzero so same length as rest
+        return [image, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks], torch.tensor(1)
 
     def __len__(self):
         return len(self.image_ids)

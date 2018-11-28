@@ -3,19 +3,19 @@
 This is a Pytorch/Fastai implementation of MaskRCNN based on work by Matterport and MultiModal Learning
 (see acknowledgements at bottom of page). This was intended as a personal learning exercise but the end result has a simple structure that may help others wanting to understand maskrcnn.
 
-Useful:
+Completed:
 
 * Overview diagram that shows the key components of maskRCNN
 * Code restructured to match the diagram and remove duplication. Should be easy to understand and to experiment with each part.
 * Works with pytorch v1 and fastai v1
-* Training and prediction working with batch size > 1
+* Training and prediction working with batch size > 1 on nuke data from 2017 kaggle bowl
 
-Needs work:
+Todo:
 
-* Not sure I am using fastai in the best way. Fastai v1 has plenty of callbacks to modify behaviour. However I had to hack some stuff to get it working. Suggestions to clean this up are welcome!
-* Limited testing. Trains with similar results to matterport on the nuke dataset (from 2017 Kaggle Bowl). However replicating exact results is really hard.
-* Created a limited test framework to benchmark against the multimodal implementation but only on a few functions. Tried the same with matterport but the code is not compatible with tensorflow eager mode without some rewriting.
-* Will be adding some examples of each component probably using the shapes dataset as this is really useful for exploring image segmentation
+* More tests. How do you know it is working?
+* Could the experimental test framework be useful for continuous testing? Is there a good framework already written?
+* How to expand testing to keras.  i.e. how to adapt matterport for eager mode?
+* Examples of outputs from each box on the diagram
 
 ## Structure
 
@@ -30,7 +30,7 @@ The core code reflects the diagram:
 
 Utilities
 * lib - c extensions for nms and roialign
-* utils - box_utils, image_utils, visualize, batch
+* utils - box_utils, image_utils, visualize, batch (function decorator to process batches)
 * callbacks - to tailor fastai for maskrcnn
 * ipstartup - startup script for notebooks
 
