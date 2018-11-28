@@ -7,16 +7,16 @@ overwritten when autosetup is reruns.
 from setuptools import setup
 
 params = dict(
-    name='maskmm',
+    name='maskr',
     description='pytorch-mask-rcnn',
     version='0.0.0',
-    url='https://github.com/simonm3/maskmm.git',
+    url='https://github.com/simonm3/maskr.git',
     install_requires=['PyYAML', 'analysis', 'fastai', 'ipython', 'matplotlib',
                       'numpy', 'pandas', 'pytest', 'scikit_image', 'scipy', 'skimage', 'tensorflow', 'torch'],
-    packages=['maskmm', 'maskmm.datagen', 'maskmm.filters', 'maskmm.lib', 'maskmm.models', 'maskmm.samples', 'maskmm.test', 'maskmm.utils', 'maskmm.lib.nms', 'maskmm.lib.roialign', 'maskmm.lib.nms._ext',
-              'maskmm.lib.nms._ext.nms', 'maskmm.lib.roialign.roi_align', 'maskmm.lib.roialign.roi_align._ext', 'maskmm.lib.roialign.roi_align._ext.crop_and_resize', 'maskmm.samples.nuke'],
+    packages=['maskr', 'maskr.datagen', 'maskr.filters', 'maskr.lib', 'maskr.models', 'maskr.samples', 'maskr.test', 'maskr.utils', 'maskr.lib.nms', 'maskr.lib.roialign', 'maskr.lib.nms._ext',
+              'maskr.lib.nms._ext.nms', 'maskr.lib.roialign.roi_align', 'maskr.lib.roialign.roi_align._ext', 'maskr.lib.roialign.roi_align._ext.crop_and_resize', 'maskr.samples.nuke'],
     data_files=[
-        ('./etc/maskmm', ['.gitignore', 'LICENSE', 'notes.txt', 'README.md'])],
+        ('./etc/maskr', ['.gitignore', 'LICENSE', 'notes.txt', 'README.md'])],
     py_modules=[],
     include_package_data=True,
     scripts=None)
