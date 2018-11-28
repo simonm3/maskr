@@ -1,4 +1,4 @@
-from datagen.config import Config
+from maskr.datagen.config import Config
 
 class Config(Config):
     NUM_CLASSES = 2

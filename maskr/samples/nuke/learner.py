@@ -3,7 +3,7 @@ import torch
 from fastai import *
 from maskr.models.maskrcnn import MaskRCNN
 from maskr.callbacks import *
-from samples.nuke.dataset import Dataset
+from .dataset import Dataset
 
 ROOT_DIR = "/home/ubuntu/maskr"
 MODEL_DIR = os.path.join(ROOT_DIR, "logs")
@@ -23,7 +23,7 @@ def get_data(config):
     # create validation sample
     pvalid = .2
     trainpath = join(DATA, "stage1_train")
-    df = pd.DataFrame(os.listdir(trainpath), columns=["image"])
+    df = pd.DataFrame(os.listdir(trainpath)[:9], columns=["image"])
     train = np.random.random(len(df))>pvalid
     df.loc[train, "subset"] = "train"
     df.loc[~train, "subset"] = "valid"

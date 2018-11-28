@@ -24,7 +24,8 @@ params = dict(
 ########## EDIT BELOW THIS LINE ONLY ##########
 
 # pipreqs adds in error
-params["install_requires"].remove("skimage")
+for x in ["skimage", "model", "mrcnn"]:
+    params["install_requires"].remove(x)
 
 # autocreate .py files for notebooks
 params["install_requires"].append("jupytext")

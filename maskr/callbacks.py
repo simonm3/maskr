@@ -11,7 +11,7 @@ class Multiloss(LearnerCallback):
         self.losses = []
 
     def on_loss_begin(self, **kwargs):
-        config = self.learner.model.config
+        config = self.learn.model.config
 
         # get inputs
         tgt_rpn_match, tgt_rpn_bbox,\
@@ -56,7 +56,7 @@ class Cuda(LearnerCallback):
         # use cpu for valid dataloader
         torch.set_default_tensor_type(torch.FloatTensor)
 
-###### save checkpoint objects ##############################################################
+###### debugging ##############################################################
 
 class TrainSave(LearnerCallback):
     """ save data during weight update """
