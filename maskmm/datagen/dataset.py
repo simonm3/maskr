@@ -210,6 +210,8 @@ class Dataset(Dataset):
         if self.augment:
             image, mask = image_utils.augment(image, mask)
 
+        # todo handle no masks e.g. after rotation
+
         # image
         image = image_utils.mold_image(image, self.config)
 
@@ -219,12 +221,8 @@ class Dataset(Dataset):
         # compress masks to reduce memory usage
         if self.config.USE_MINI_MASK:
             mask = image_utils.minimize_mask(bbox, mask, self.config.MINI_MASK_SHAPE)
-        try:
-            mask = torch.tensor(mask.astype(int))
-        except:
-            from maskmm.baseline import ftype
-            log.info(mask)
-            log.info(ftype(mask))
+        mask = torch.tensor(mask.astype(int))
+
         # make float to enable log function
         bbox = bbox.float()
 

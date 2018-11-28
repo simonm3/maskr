@@ -4,12 +4,11 @@ from maskmm.baseline import save
 import logging
 log = logging.getLogger()
 
-class Multiloss(Callback):
+class Multiloss(LearnerCallback):
     """ calculate multiple loss functions, sum, and save results """
 
-    def __init__(self, learner):
-        self.learner = learner
-        learner.losses = []
+    def on_train_begin(self, **kwargs:Any):
+        self.losses = []
 
     def on_loss_begin(self, **kwargs):
         config = self.learner.model.config
@@ -20,45 +19,47 @@ class Multiloss(Callback):
         target_class_ids, target_deltas, target_mask,\
         mrcnn_class_logits, mrcnn_bbox, mrcnn_mask = kwargs["last_output"]["out"]
 
-        # calculate
+        # rpn loss
         rpn_class_loss = loss.rpn_class(tgt_rpn_match, rpn_class_logits)
         rpn_bbox_loss = loss.rpn_bbox(tgt_rpn_bbox, tgt_rpn_match, rpn_bbox)
+        losses = [rpn_class_loss, rpn_bbox_loss]
 
+        # head loss
         if config.HEAD:
             mrcnn_class_loss = loss.mrcnn_class(target_class_ids, mrcnn_class_logits)
             mrcnn_bbox_loss = loss.mrcnn_bbox(target_deltas, target_class_ids, mrcnn_bbox)
             mrcnn_mask_loss = loss.mrcnn_mask(target_mask, target_class_ids, mrcnn_mask)
-
-        # save
-        losses = [rpn_class_loss, rpn_bbox_loss]
-        if config.HEAD:
             losses.extend([mrcnn_class_loss, mrcnn_bbox_loss, mrcnn_mask_loss])
+
+        # output losses
         total = sum(losses).squeeze()
         losses = [total] + losses
         log.info([f"{x}={loss.item():0.4f}" for x, loss in zip(["tot", "rc", "rb", "c", "b", "m"],losses)])
-        self.learner.losses.append(losses)
+        self.losses.append(losses)
 
         return total
 
 class Cuda(LearnerCallback):
-    """ sets default tensors to config.DEVICE except during dataloader """
+    """ sets default tensors during training/validation to config.DEVICE
+    sets to cpu for train/valid dataloader as cuda does not work with multiprocessing workers>0)
+    """
     def on_train_begin(self, **kwargs:Any):
-        # reset cuda at start of training
+        # use cpu for train dataloader
         torch.set_default_tensor_type(torch.FloatTensor)
 
     def on_batch_begin(self, **kwargs:Any):
-        # set cuda after dataloader initialised. any earlier causes cuda error if workers>0
+        # use cuda after dataloader initialised
         if self.learn.model.config.DEVICE=="cuda":
             torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
     def on_batch_end(self, **kwargs:Any):
-        # reset cuda before validation
+        # use cpu for valid dataloader
         torch.set_default_tensor_type(torch.FloatTensor)
 
 ###### save checkpoint objects ##############################################################
 
-class Batch_begin_save(LearnerCallback):
-    """ save data loaded """
+class TrainSave(LearnerCallback):
+    """ save data during weight update """
     def on_batch_begin(self, **kwargs):
         xb = kwargs["last_input"]
         images, image_metas, tgt_rpn_match, tgt_rpn_bbox, gt_class_ids, gt_boxes, gt_masks = xb
@@ -69,9 +70,8 @@ class Batch_begin_save(LearnerCallback):
         save(tgt_rpn_match.unsqueeze(-1), "rpn_match")
         save(tgt_rpn_bbox, "rpn_bbox")
 
-class Back_end_save(LearnerCallback):
-    """ save weights and gradients before step """
     def on_backward_end(self, **kwargs:Any):
+        """ save weights and gradients before step """
         for name, param in self.learn.model.named_parameters():
             if param.requires_grad:
                 save(param, "back_" + name)
@@ -79,9 +79,8 @@ class Back_end_save(LearnerCallback):
             if param.requires_grad:
                 save(param.grad, "grad_"+name)
 
-class Step_end_save(LearnerCallback):
-    """ save weights after step """
     def on_step_end(self, **kwargs:Any):
+        """ save weights after step """
         for name, param in self.learn.model.named_parameters():
             if param.requires_grad:
                 save(param, "step_"+name)

@@ -1,132 +1,74 @@
 # pytorch-mask-rcnn
 
+This is a Pytorch/Fastai implementation of MaskRCNN based mainly on work by Matterport and MultiModal Learning
+(see acknowledgements at bottom of page). This was mostly a learning exercise for me but at the same time the result
+has a simpler structure for others wanting to understand it.
 
-This is a Pytorch implementation of [Mask R-CNN](https://arxiv.org/abs/1703.06870) that is in large parts based on Matterport's
-[Mask_RCNN](https://github.com/matterport/Mask_RCNN). Matterport's repository is an implementation on Keras and TensorFlow.
-The following parts of the README are excerpts from the Matterport README. Details on the requirements, training on MS COCO
-and detection results for this repository can be found at the end of the document.
+The best bits:
 
-The Mask R-CNN model generates bounding boxes and segmentation masks for each instance of an object in the image. It's based
-on Feature Pyramid Network (FPN) and a ResNet101 backbone.
+* Overview diagram that shows the key components of maskRCNN
+* Code restructured to match the diagram and remove duplication. Should be easy to understand and to experiment with 
+each part.
+* Updated to work with pytorch v1 and fastai v1
+* Training and prediction working with batch size > 1
 
-![Instance Segmentation Sample](assets/street.png)
+The bits that need some work:
 
-The next four images visualize different stages in the detection pipeline:
-
-
-##### 1. Anchor sorting and filtering
-The Region Proposal Network proposes bounding boxes that are likely to belong to an object. Positive and negative anchors
-along with anchor box refinement are visualized.
-
-![](assets/detection_anchors.png)
-
-
-##### 2. Bounding Box Refinement
-This is an example of final detection boxes (dotted lines) and the refinement applied to them (solid lines) in the second stage.
-
-![](assets/detection_refinement.png)
-
-
-##### 3. Mask Generation
-Examples of generated masks. These then get scaled and placed on the image in the right location.
-
-![](assets/detection_masks.png)
-
-
-##### 4. Composing the different pieces into a final result
-
-![](assets/detection_final.png)
-
-## Requirements
-* Python 3
-* Pytorch 0.3
-* matplotlib, scipy, skimage, h5py
+* Not sure I am using fastai in the best way. Fastai v1 has plenty of callbacks to modify behaviour. However I still 
+found I had to hack some stuff to get it working. Suggestions to clean this up are welcome!
+* Limited testing. Trains with similar results to matterport on the nuke dataset (from 2017 Kaggle Bowl). 
+But how do you know it is working?
+* Have played around with a test framework to check against matterport/multimodal implementations. However this has 
+low coverage. Hard to use this with matterport as code will not work in eager mode without significant changes.  
+* Will be adding some examples of each component probably using the shapes dataset as this is really useful for 
+exploring image segmentation
 
 ## Installation
 1. Clone this repository.
 
-        git clone https://github.com/multimodallearning/pytorch-mask-rcnn.git
+        git clone https://github.com/simonm3/maskmm.git
+        cd maskmm/maskmm/lib
+        ./make.sh
 
-    
-2. We use functions from two more repositories that need to be build with the right `--arch` option for cuda support.
-The two functions are Non-Maximum Suppression from ruotianluo's [pytorch-faster-rcnn](https://github.com/ruotianluo/pytorch-faster-rcnn)
-repository and longcw's [RoiAlign](https://github.com/longcw/RoIAlign.pytorch).
+ 2. Download the pretrained coco weights from [Google Drive](https://drive.google.com/open?id=1LXUgC2IZUYNEoXr05tdqyKFZY0pZyPDc).
 
-    | GPU | arch |
-    | --- | --- |
-    | TitanX | sm_52 |
-    | GTX 960M | sm_50 |
-    | GTX 1070 | sm_61 |
-    | GTX 1080 (Ti) | sm_61 |
 
-        cd nms/src/cuda/
-        nvcc -c -o nms_kernel.cu.o nms_kernel.cu -x cu -Xcompiler -fPIC -arch=[arch]
-        cd ../../
-        python build.py
-        cd ../
+## Acknowledgements and links
 
-        cd roialign/roi_align/src/cuda/
-        nvcc -c -o crop_and_resize_kernel.cu.o crop_and_resize_kernel.cu -x cu -Xcompiler -fPIC -arch=[arch]
-        cd ../../
-        python build.py
-        cd ../../
+### Overviews
 
-3. As we use the [COCO dataset](http://cocodataset.org/#home) install the [Python COCO API](https://github.com/cocodataset/cocoapi) and
-create a symlink.
+[Summary](https://blog.athelas.com/a-brief-history-of-cnns-in-image-segmentation-from-r-cnn-to-mask-r-cnn-34ea83205de4)
+Useful blog that summarises and explains the key steps that led to maskrcnn.
 
-        ln -s /path/to/coco/cocoapi/PythonAPI/pycocotools/ pycocotools
-    
-4. Download the pretrained models on COCO and ImageNet from [Google Drive](https://drive.google.com/open?id=1LXUgC2IZUYNEoXr05tdqyKFZY0pZyPDc).
+[Intro to region based models](http://deeplearning.csail.mit.edu/instance_ross.pdf). Introduction written by 
+Ross Girshick who created maskrcnn.
 
-## Demo
+[Another intro blog](https://medium.com/ilenze-com/object-detection-using-deep-learning-for-advanced-users-part-1-183bbbb08b19)
 
-To test your installation simply run the demo with
+[Intro to fasterRCNN](https://tryolabs.com/blog/2018/01/18/faster-r-cnn-down-the-rabbit-hole-of-modern-object-detection/)
 
-    python demo.py
+[ROI pooling intro](https://deepsense.ai/region-of-interest-pooling-explained/)
 
-It works on CPU or GPU and the result should look like this:
+### Papers
 
-![](assets/park.png)
+[FastRCNN](https://arxiv.org/pdf/1504.08083.pdf)
 
-## Training on COCO
-Training and evaluation code is in coco.py. You can run it from the command
-line as such:
+[FasterRCNN](https://arxiv.org/pdf/1506.01497v3.pdf)
 
-    # Train a new model starting from pre-trained COCO weights
-    python coco.py train --dataset=/path/to/coco/ --model=coco
+[MaskRCNN](https://arxiv.org/abs/1703.06870)
 
-    # Train a new model starting from ImageNet weights
-    python coco.py train --dataset=/path/to/coco/ --model=imagenet
+[Feature Pyramid Networks](https://arxiv.org/abs/1612.03144)
 
-    # Continue training a model that you had trained earlier
-    python coco.py train --dataset=/path/to/coco/ --model=/path/to/weights.h5
 
-    # Continue training the last model you trained. This will find
-    # the last trained weights in the model directory.
-    python coco.py train --dataset=/path/to/coco/ --model=last
+### Packages
 
-If you have not yet downloaded the COCO dataset you should run the command
-with the download option set, e.g.:
+[Matterport Mask_RCNN](https://github.com/matterport/Mask_RCNN). A keras/tensorflow implementation of maskrcnn
 
-    # Train a new model starting from pre-trained COCO weights
-    python coco.py train --dataset=/path/to/coco/ --model=coco --download=true
+[Multimodal learning](https://github.com/multimodallearning/pytorch-mask-rcnn). Pytorch version of matterport.
 
-You can also run the COCO evaluation code with:
+[Facebook detectron]()https://github.com/facebookresearch/Detectron). Facebook super package that includes
+ implementation of a wide range of image segmentation algorithms. Uses Caffe2.
 
-    # Run COCO evaluation on the last trained model
-    python coco.py evaluate --dataset=/path/to/coco/ --model=last
-
-The training schedule, learning rate, and other parameters can be set in coco.py.
-
-## Results
-
-COCO results for bounding box and segmentation are reported based on training
-with the default configuration and backbone initialized with pretrained
-ImageNet weights. Used metric is AP on IoU=0.50:0.95.
-
-|    | from scratch | converted from keras | Matterport's Mask_RCNN | Mask R-CNN paper |
-| --- | --- | --- | --- | --- |
-| bbox | t.b.a. | 0.347 | 0.347 | 0.382 |
-| segm | t.b.a. | 0.296 | 0.296 | 0.354 |
+[Pytorch detectron]()https://github.com/roytseng-tw/Detectron.pytorch). Conversion of detectron to pytorch.
 
 
