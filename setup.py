@@ -8,22 +8,29 @@ from setuptools import setup
 
 params = dict(
     name='maskr',
-    description='pytorch-mask-rcnn',
+    description='Pytorch MaskRCNN',
     version='0.0.0',
-    url='https://github.com/simonm3/maskr.git',
-    install_requires=['PyYAML', 'analysis', 'fastai', 'ipython', 'matplotlib',
-                      'numpy', 'pandas', 'pytest', 'scikit_image', 'scipy', 'skimage', 'tensorflow', 'torch'],
-    packages=['maskr', 'maskr.datagen', 'maskr.filters', 'maskr.lib', 'maskr.models', 'maskr.samples', 'maskr.test', 'maskr.utils', 'maskr.lib.nms', 'maskr.lib.roialign', 'maskr.lib.nms._ext',
-              'maskr.lib.nms._ext.nms', 'maskr.lib.roialign.roi_align', 'maskr.lib.roialign.roi_align._ext', 'maskr.lib.roialign.roi_align._ext.crop_and_resize', 'maskr.samples.nuke'],
-    data_files=[
-        ('./etc/maskr', ['.gitignore', 'LICENSE', 'notes.txt', 'README.md'])],
+    url='https://github.com/simonm3/maskmm.git',
+    install_requires=['Pillow', 'PyYAML', 'analysis', 'fastai', 'h5py', 'ipython', 'matplotlib', 'model', 'mrcnn',
+                      'numpy', 'pandas', 'pycocotools', 'pytest', 'scikit_image', 'scipy', 'skimage', 'tensorflow', 'torch', 'tqdm'],
+    packages=['maskr', 'maskr.datagen', 'maskr.filters', 'maskr.lib', 'maskr.models', 'maskr.samples', 'maskr.test', 'maskr.utils', 'maskr.lib.nms',
+              'maskr.lib.roialign', 'maskr.lib.roialign.roi_align', 'maskr.samples.balloon', 'maskr.samples.coco', 'maskr.samples.nuke', 'maskr.samples.shapes'],
+    data_files=[('./etc/maskr', ['.gitignore', 'LICENSE',
+                                 'maskr.graphml', 'maskr.jpg', 'README.md'])],
     py_modules=[],
     include_package_data=True,
     scripts=None)
 
 ########## EDIT BELOW THIS LINE ONLY ##########
 
+# pipreqs adds in error
 params["install_requires"].remove("skimage")
+
+# autocreate .py files for notebooks
+params["install_requires"].append("jupytext")
+
+# not needed
+params["data_files"] = []
 
 ########## EDIT ABOVE THIS LINE ONLY ##########
 
