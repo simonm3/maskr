@@ -17,6 +17,10 @@ The bits that need some work:
 * Created a limited test framework to benchmark against the multimodal implementation but only on a few functions. Tried the same with matterport but the code is not compatible with tensorflow eager mode without some rewriting.
 * Will be adding some examples of each component probably using the shapes dataset as this is really useful for exploring image segmentation
 
+## Structure
+
+[see diagram](maskrother_file.md)
+
 ## Installation
 1. Clone this repository.
 
