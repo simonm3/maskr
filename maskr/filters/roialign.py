@@ -26,7 +26,7 @@ def roialign(boxes, p2, p3, p4, p5, pool_size, image_shape):
     # Feature Maps. List of feature maps from different level of the
     # feature pyramid. Each is [batch, height, width, channels]
     if len(boxes)==0:
-        return torch.empty(0, 256, pool_size, pool_size)
+        return torch.empty(0)
 
     feature_maps = [p2,p3,p4,p5]
 

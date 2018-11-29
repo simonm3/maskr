@@ -153,10 +153,9 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         zeros = torch.zeros(negative_count, *config.MASK_SHAPE)
         masks = zeros
     else:
-        # needs to be right shape for stacking. others are cat.
-        rois = torch.empty(0, 4)
+        rois = torch.empty(0)
         roi_gt_class_ids = torch.empty(0)
-        deltas = torch.empty(0, 4)
-        masks = torch.empty(0, *config.MASK_SHAPE)
+        deltas = torch.empty(0)
+        masks = torch.empty(0)
 
     return rois, roi_gt_class_ids, deltas, masks
