@@ -106,7 +106,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
             x2 = (x2 - gt_x1) / gt_w
             boxes = torch.cat([y1, x1, y2, x2], dim=1)
         box_ids = torch.arange(len(roi_masks)).int()
-        masks = CropAndResizeFunction(config.MASK_SHAPE[0], config.MASK_SHAPE[1], 0) \
+        masks = CropAndResizeFunction(*config.MASK_SHAPE, 0) \
             (roi_masks.unsqueeze(1), boxes, box_ids)
         masks = masks.squeeze(1)
 
@@ -140,7 +140,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         roi_gt_class_ids = torch.cat([roi_gt_class_ids, zeros], dim=0)
         zeros = torch.zeros(negative_count, 4)
         deltas = torch.cat([deltas, zeros], dim=0)
-        zeros = torch.zeros(negative_count, config.MASK_SHAPE[0], config.MASK_SHAPE[1])
+        zeros = torch.zeros(negative_count, *config.MASK_SHAPE)
         masks = torch.cat([masks, zeros], dim=0)
     elif positive_count > 0:
         rois = positive_rois
@@ -150,13 +150,13 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         roi_gt_class_ids = zeros
         zeros = torch.zeros(negative_count, 4).int()
         deltas = zeros
-        zeros = torch.zeros(negative_count, config.MASK_SHAPE[0], config.MASK_SHAPE[1])
+        zeros = torch.zeros(negative_count, *config.MASK_SHAPE)
         masks = zeros
     else:
         # needs to be right shape for stacking. others are cat.
         rois = torch.empty(0, 4)
         roi_gt_class_ids = torch.empty(0)
         deltas = torch.empty(0, 4)
-        masks = torch.empty(0, *config.MASK_SHAPE[:2])
+        masks = torch.empty(0, *config.MASK_SHAPE)
 
     return rois, roi_gt_class_ids, deltas, masks

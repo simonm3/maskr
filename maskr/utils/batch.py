@@ -35,17 +35,20 @@ def pad(x, shape):
     return torch.nn.functional.pad(x, padding)
 
 def pack(variables):
-    """ add zero padding and stack batch dimension to each variable
+    """ add zero padding and stack
     for each variable
-        input is a list of item tensors of same size except for dim0
-        output is stacked, zeropadded tensor with batch dimension
-        empty output is not padded/stacked
-        e.g. batch of three class_logits [[12,2], [44,2], [5, 2]] => [3,44,2]
+        input is a list of item tensors.
+        output is stacked. if smaller or empty then zeropadded to enable stacking.
+        e.g. batch of three class_logits [[12,2], [44,2], [5, 2, 3]] => [3,44,2,3]
     """
     stacked = []
     for v in variables:
-        maxlength  = max([item.shape[0] for item in v])
-        padded = [pad(item, maxlength) for item in v if not item.eq(0).all()]
+        dims = max([len(x.shape) for x in v])
+        maxshape = []
+        for dim in range(dims):
+            maxdim  = max([item.shape[dim] for item in v])
+            maxshape.append(maxdim)
+        padded = [pad(item, maxshape) for item in v]
         stacked.append(torch.stack(padded))
     return stacked
 

@@ -1,14 +1,15 @@
 # Pytorch MaskRCNN
 
 This is a Pytorch/Fastai implementation of MaskRCNN based on work by Matterport and MultiModal Learning
-(see acknowledgements at bottom of page). This was intended as a personal learning exercise but the end result has a simple structure that may help others wanting to understand maskrcnn.
+(see acknowledgements at bottom of page). Mainly a personal learning exercise but the simplified structure may help others wanting to understand maskrcnn.
 
 Completed:
 
 * Overview diagram that shows the key components of maskRCNN
-* Code restructured to match the diagram and remove duplication. Should be easy to understand and to experiment with each part.
+* Code restructured to match the diagram to make it easy to understand and experiment with each part.
+* Decluttered and cleaned up
 * Works with pytorch v1 and fastai v1
-* Training and prediction working with batch size > 1 on nuke data from 2017 kaggle bowl
+* Training and prediction working on nuke data from 2017 kaggle bowl
 
 Todo:
 
