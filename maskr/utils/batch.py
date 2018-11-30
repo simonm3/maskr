@@ -1,8 +1,8 @@
 import torch
+import numpy as  np
 from functools import wraps
 import logging
 log = logging.getLogger()
-import numpy as  np
 
 def unbatch(vars):
     """ combine first 2 dimensions of each var """
@@ -25,7 +25,6 @@ def pad(x, tgt_shape):
     """ return zeropadded x with target shape
     any dimensions of shape less than x.shape are ignored
     integer shape extends dim=0 and pads rest with zeros
-    todo handle mixed types
     """
     # empty return zeros
     if len(x)==0:
@@ -64,19 +63,15 @@ def pack(variables):
         stacked.append(torch.stack(padded))
     return stacked
 
-#todo extend to dataset/dataloader
-def unpack(variables, cat=False):
+def unpack(variables):
     """ remove first dimension and zero padding from each variable
 
       variables is a list with one tensor per variable
       a tensor [3, 5, 4] may be unpacked to [[5, 4], [2, 4], [1, 4]]
-      if cat=True then concatenate result to return [8,4]
     """
     all_unpacked = []
     for v in variables:
         unpacked = [item[item.ne(0).nonzero()[:, 0].unique()] for item in v]
-        if cat:
-            unpacked = torch.cat(unpacked)
         all_unpacked.append(unpacked)
     return all_unpacked
 

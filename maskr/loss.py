@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 from maskr.baseline import saveall
-from maskr.utils.batch import unpack, batch_slice, unbatch
+from maskr.utils.batch import unbatch
 import logging
 log = logging.getLogger()
 
@@ -107,6 +107,7 @@ def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
     indices = torch.stack((positive_roi_ix, positive_roi_class_ids), dim=1)
 
     if len(indices)==0:
+        log.warning("no positive rois")
         return torch.tensor([0], requires_grad=False).float()
 
     # Gather the deltas (predicted and true) that contribute to loss
@@ -137,6 +138,7 @@ def mrcnn_mask(target_masks, target_class_ids, pred_masks):
     indices = torch.stack((positive_ix, positive_class_ids), dim=1)
 
     if len(indices)==0:
+        log.warning("no positive rois for mask")
         return torch.tensor([0], requires_grad=False).float()
 
     # Gather the masks (predicted and true) that contribute to loss

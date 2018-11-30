@@ -2,7 +2,6 @@ import numpy as np
 import scipy.misc, scipy.ndimage
 import torch
 from skimage.transform import rotate, warp, AffineTransform
-from maskr.utils.batch import batch_slice
 import logging
 log = logging.getLogger()
 

@@ -84,34 +84,26 @@ class Baseline:
         filepath = join(self.path, filename)
         return pickle.load(open(filepath, "rb"))
 
-    def saveall(base, f):
+    def saveall(self, f):
         """ function decorator. save parameters, random state and return values
 
         can also be used for checkpoints e.g. this would create check1.a, check1.b
             @saveall
             def check1(a, b):
                 pass
-
-        todo tensorflow bug requires "self" as parameter to call function
-        HACKAROUND WRAPPER BELOW USES SELF AND THIS FUNCTION USES BASE AS FIRST PARAMETER
         """
-        if not base.enabled:
+        if not self.enabled:
             return f
         @wraps(f)
-        def wrapper(self, *args, **kwargs):
+        def wrapper(*args, **kwargs):
             func_name = f.__name__
-
-            # todo tensorflow bug workaround
-            args = list(args)
-            args.insert(0, self)
-            del self
 
             # save parameters
             params = dict(zip(f.__code__.co_varnames, args))
             params.update(kwargs)
 
             for param, v in params.items():
-                base.save(v, f"{func_name}.{param}")
+                self.save(v, f"{func_name}.{param}")
 
             # save random state
             randomstate = [random.getstate(), np.random.get_state(), torch.random.get_rng_state()]
@@ -128,7 +120,7 @@ class Baseline:
             # save return values
             out = listify(out)
             for i, ret in enumerate(out):
-                base.save(ret, f"results/{func_name}.{i}")
+                self.save(ret, f"results/{func_name}.{i}")
 
             # revert from list to single return
             out = unlistify(out)

@@ -7,7 +7,7 @@ import torch.utils.data
 from torch import from_numpy
 
 from maskr.utils import image_utils
-from maskr.utils.batch import batch_slice, unbatch, unpack
+from maskr.utils.batch import batch_slice
 
 from maskr.datagen.head_targets import build_head_targets
 from maskr.filters.proposals import proposals

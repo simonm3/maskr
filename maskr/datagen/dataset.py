@@ -167,14 +167,13 @@ class Dataset(Dataset):
         # rpn_targets
         rpn_match, rpn_bbox = build_rpn_targets(self.config.ANCHORS, gt_class_ids, gt_boxes, self.config)
 
-        # todo move to dataloader and use pad_length
-        # zeropad so dataloader can stack batch. rpn_match and rpn_bbox already padded
+        # zeropad so dataloader can stack batch. rpn_match and rpn_bbox already stackable
         gt_class_ids = batch.pad(from_numpy(gt_class_ids), self.config.MAX_GT_INSTANCES)
         gt_boxes = batch.pad(from_numpy(gt_boxes), self.config.MAX_GT_INSTANCES)
         gt_masks = batch.pad(from_numpy(gt_masks), self.config.MAX_GT_INSTANCES)
 
         # fastai requires a "y"
-        return [image, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks], torch.tensor(0)
+        return [image, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks], 0
 
     def __len__(self):
         return len(self.image_ids)
@@ -216,8 +215,6 @@ class Dataset(Dataset):
         # augment image and mask
         if self.augment:
             image, mask = image_utils.augment(image, mask)
-
-        # todo handle no masks e.g. after rotation
 
         # image
         image = image_utils.mold_image(image, self.config)
