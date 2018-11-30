@@ -4,29 +4,38 @@ import logging
 log = logging.getLogger()
 import numpy as  np
 
-def unbatch(*vars):
+def unbatch(vars):
     """ combine first 2 dimensions of each var """
+    vars = listify(vars)
     return unlistify([x.reshape(-1, *x.shape[2:]) for x in vars])
 
 def listify(x):
     """ allow single item to be treated same as list. simplifies loops and list comprehensions """
-    return [x] if not isinstance(x, (list, tuple)) else list(x)
+    if isinstance(x, tuple):
+        return list(x)
+    if not isinstance(x, list):
+        return [x]
+    return x
 
 def unlistify(x):
     """ remove list wrapper from single item. similar to function returning list or item """
     return x[0] if len(x)==1 else x
 
-def pad(x, shape):
+def pad(x, tgt_shape):
     """ return zeropadded x with target shape
     any dimensions of shape less than x.shape are ignored
     integer shape extends dim=0 and pads rest with zeros
+    todo handle mixed types
     """
+    # empty return zeros
+    if len(x)==0:
+        return torch.zeros(tgt_shape, dtype=x.dtype)
+
     # pad dim0 only
-    if isinstance(shape, int):
-        shape = [shape, *x.shape[1:]]
-    if len(x.shape)!=len(shape):
-        raise Exception("x and shape must have same number of dimensions")
-    padding = [max(0, t-x) for t,x in zip(shape, x.shape)]
+    if isinstance(tgt_shape, int):
+        tgt_shape = [tgt_shape, *x.shape[1:]]
+
+    padding = [max(0, t-x) for t,x in zip(tgt_shape, x.shape)]
     # format for torch pad to pad at bottom
     padding = reversed([(0, p) for p in padding])
     padding = np.concatenate(list(padding)).tolist()
@@ -35,30 +44,33 @@ def pad(x, shape):
     return torch.nn.functional.pad(x, padding)
 
 def pack(variables):
-    """ add zero padding and stack
-    for each variable
-        input is a list of item tensors.
-        output is stacked. if smaller or empty then zeropadded to enable stacking.
-        e.g. batch of three class_logits [[12,2], [44,2], [5, 2, 3]] => [3,44,2,3]
+    """ add zero padding and stack each variable
+
+    variables is a list where each variable is a list of tensors.
+    return is a list with one tensor per variable
+    e.g. three tensors [[5, 4], [2, 4], [1, 4]] would pack to a tensor [3, 5, 4]
     """
     stacked = []
     for v in variables:
+        # get maximum dimensions
         dims = max([len(x.shape) for x in v])
         maxshape = []
         for dim in range(dims):
-            maxdim  = max([item.shape[dim] for item in v])
+            maxdim  = max([0 if dim>=len(item.shape) else item.shape[dim] for item in v])
             maxshape.append(maxdim)
+
+        # resize items to maximum and stack
         padded = [pad(item, maxshape) for item in v]
         stacked.append(torch.stack(padded))
     return stacked
 
 #todo extend to dataset/dataloader
 def unpack(variables, cat=False):
-    """ remove batch dimension and zero padding from each variable
-      variables is list of zeropadded tensors in form [[batch, a], [batch, b]]
-      return is list of variables where each variable is a list of unpacked tensors [[a1,a2,a3], [b1,b2,b3]]
+    """ remove first dimension and zero padding from each variable
 
-      if cat=True used in losses to concatenate each variable to return [a,b]
+      variables is a list with one tensor per variable
+      a tensor [3, 5, 4] may be unpacked to [[5, 4], [2, 4], [1, 4]]
+      if cat=True then concatenate result to return [8,4]
     """
     all_unpacked = []
     for v in variables:

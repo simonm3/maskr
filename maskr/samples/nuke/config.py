@@ -1,4 +1,4 @@
-from maskr.datagen.config import Config
+from maskr.config import Config
 
 class Config(Config):
     NUM_CLASSES = 2

@@ -2,6 +2,7 @@ import skimage
 from skimage.io import imread
 import numpy as np
 import torch
+from torch import from_numpy
 from torch.utils.data import Dataset
 from maskr.utils import box_utils, image_utils, batch
 from maskr.datagen.rpn_targets import build_rpn_targets
@@ -142,7 +143,7 @@ class Dataset(Dataset):
             image = skimage.color.gray2rgb(image)*255
         elif image.shape[-1] == 4:
             image = skimage.color.rgba2rgb(image)*255
-        return image
+        return image.astype(np.uint8)
 
     def load_mask(self, image_id):
         # Override this function to load a mask from your dataset.
@@ -157,22 +158,28 @@ class Dataset(Dataset):
 
         # load gt
         image, image_metas, gt_class_ids, gt_boxes, gt_masks = \
-            self.load_image_gt(image_id)
+            self.load_image_gt(image_id, self.config.USE_MINI_MASK)
 
         # If no instances then skip. e.g. image has none of classes we care about.
-        if gt_class_ids.eq(0).all():
+        if (gt_class_ids==0).all():
             return None
 
         # rpn_targets
         rpn_match, rpn_bbox = build_rpn_targets(self.config.ANCHORS, gt_class_ids, gt_boxes, self.config)
 
-        # fastai requires a "y" and must be nonzero so same length as rest
-        return [image, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks], torch.tensor(1)
+        # todo move to dataloader and use pad_length
+        # zeropad so dataloader can stack batch. rpn_match and rpn_bbox already padded
+        gt_class_ids = batch.pad(from_numpy(gt_class_ids), self.config.MAX_GT_INSTANCES)
+        gt_boxes = batch.pad(from_numpy(gt_boxes), self.config.MAX_GT_INSTANCES)
+        gt_masks = batch.pad(from_numpy(gt_masks), self.config.MAX_GT_INSTANCES)
+
+        # fastai requires a "y"
+        return [image, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks], torch.tensor(0)
 
     def __len__(self):
         return len(self.image_ids)
 
-    def load_image_gt(self, image_id):
+    def load_image_gt(self, image_id, use_mini_mask=True):
         """Load and return ground truth data for an image (image, mask, bounding boxes).
 
         use_mini_mask: If False, returns full-size masks that are the same height
@@ -193,7 +200,6 @@ class Dataset(Dataset):
         # Load image and mask
         image = self.load_image(image_id)
         mask, class_ids = self.load_mask(image_id)
-        class_ids = torch.tensor(class_ids, dtype=torch.float)
 
         # If too many instances than subsample.
         if len(class_ids) > self.config.MAX_GT_INSTANCES:
@@ -220,26 +226,21 @@ class Dataset(Dataset):
         bbox = box_utils.extract_bboxes(mask)
 
         # compress masks to reduce memory usage
-        if self.config.USE_MINI_MASK:
+        if use_mini_mask:
             mask = image_utils.minimize_mask(bbox, mask, self.config.MINI_MASK_SHAPE)
-        mask = torch.tensor(mask.astype(int))
-
-        # make float to enable log function
-        bbox = bbox.float()
 
         # convert [h,w,N] to [N,h,w] to align with other inputs having N first
-        mask = mask.permute(2, 0, 1).float()
+        mask = mask.transpose(2, 0, 1)
 
         # remove any empty masks
-        ix = mask.gt(0).nonzero()[:, 0].unique()
+        ix = (mask>0).any(axis=(1,2))
         mask = mask[ix]
         class_ids = class_ids[ix]
         bbox = bbox[ix]
 
-        # todo move to dataloader and use pad_length
-        # zeropad so dataloader can stack batch. rpn_match and rpn_bbox already padded
-        class_ids = batch.pad(class_ids, self.config.MAX_GT_INSTANCES)
-        bbox = batch.pad(bbox, self.config.MAX_GT_INSTANCES)
-        mask = batch.pad(mask, self.config.MAX_GT_INSTANCES)
+        # float needed later to scale, compute_overlaps and box_refinement
+        class_ids = class_ids.astype(np.float32)
+        bbox = bbox.astype(np.float32)
+        mask = mask.astype(np.float32)
 
         return image, image_meta, class_ids, bbox, mask

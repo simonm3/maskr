@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 from .samepad2d import SamePad2d
 
 from maskr.baseline import saveall, save
@@ -24,6 +25,8 @@ class Classifier(nn.Module):
         self.linear_bbox = nn.Linear(1024, num_classes * 4)
 
     def forward(self, x):
+        if len(x)==0:
+            return 3*[torch.empty(0)]
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -63,6 +66,9 @@ class Mask(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
+        if len(x)==0:
+            return torch.empty(0)
+
         x = self.conv1(self.padding(x))
         x = self.bn1(x)
         x = self.relu(x)

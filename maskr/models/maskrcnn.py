@@ -4,9 +4,10 @@ import re
 import torch
 import torch.nn as nn
 import torch.utils.data
+from torch import from_numpy
 
 from maskr.utils import image_utils
-from maskr.utils.batch import batch_slice, unbatch
+from maskr.utils.batch import batch_slice, unbatch, unpack
 
 from maskr.datagen.head_targets import build_head_targets
 from maskr.filters.proposals import proposals
@@ -37,7 +38,7 @@ class MaskRCNN(nn.Module):
         self.config = config
 
         # must be on same device as model
-        self.anchors = config.ANCHORS.to(config.DEVICE)
+        self.anchors = from_numpy(config.ANCHORS)
 
         # Image size must be dividable by 2 multiple times
         h, w = config.IMAGE_SHAPE[:2]
@@ -101,7 +102,9 @@ class MaskRCNN(nn.Module):
         # Generate proposals [batch, N, (y1, x1, y2, x2)] in normalized coordinates, zero padded.
         proposal_count = config.POST_NMS_ROIS_TRAINING if self.training \
             else config.POST_NMS_ROIS_INFERENCE
-        rois = proposals(rpn_class, rpn_bbox, proposal_count, self.anchors, config=config)
+        rois = proposals(rpn_class, rpn_bbox, proposal_count,
+                         self.anchors.to(self.config.DEVICE),
+                         config=config)
 
         if not config.HEAD:
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
@@ -113,25 +116,13 @@ class MaskRCNN(nn.Module):
                 rois, target_class_ids, target_deltas, target_mask = \
                     build_head_targets(rois, gt_class_ids, gt_boxes, gt_masks, config)
 
-                # combine batch/rois dimension for head
-                target_class_ids, target_deltas, target_mask = unbatch(target_class_ids, target_deltas, target_mask)
-
-                if not len(target_class_ids):
-                    log.warning("no rois")
-                    return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
-                                     rpn_class_logits, rpn_bbox, \
-                                     target_class_ids, target_deltas, target_mask, \
-                                     torch.empty(0), torch.empty(0), torch.empty(0)])
-
             # class head
             x = roialign(rois, *feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
-            x = unbatch(x)
-            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = self.classifier(x)
+            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
 
             # mask head
             x = roialign(rois, *feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
-            x = unbatch(x)
-            mrcnn_mask = self.mask(x)
+            mrcnn_mask = batch_slice()(self.mask)(x)
 
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                              rpn_class_logits, rpn_bbox, \
@@ -140,7 +131,6 @@ class MaskRCNN(nn.Module):
         else:
             # class head
             x = roialign(rois, *feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
-
             mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
 
             # detections filter speeds inference and improves accuracy (see maskrcnn paper)

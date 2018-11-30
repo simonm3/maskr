@@ -24,7 +24,7 @@ Todo:
 Note that training and detection follow slightly different paths.
 
 The core code reflects the diagram:
-* datagen - anchors, dataset, head_targets, rpn_targets, config
+* datagen - anchors, dataset, head_targets, rpn_targets
 * model - maskrcnn (whole thing), resnet (backbone), resnetFPN (feature pyramid), rpn
 * filter - proposals, roialign, detections
 * loss - loss functions for rpn and head
@@ -34,14 +34,16 @@ Utilities
 * utils - box_utils, image_utils, visualize, batch (function decorator to process batches)
 * callbacks - to tailor fastai for maskrcnn
 * ipstartup - startup script for notebooks
+* config - configuration constants
 
 Samples
  * Applications typically with dataset, config, learner, notebooks
- * Each notebook has a linked py file to allow version control
 
-Experimental
-* test - experimental tests versus matterport/multimodal
-* baseline - used for testing 
+Baseline/Test (experimental)
+* baseline - classes to help compare a new versus baseline version
+* test - pytest functions
+    - limited number of tests versus multimodal
+    - tried versus matterport but original needs adapting to work with eager mode
 
 ## Installation
 1. Clone this repository.
@@ -52,12 +54,12 @@ Experimental
     cd maskmm/maskmm/lib
     ./make.sh
     
-3. Install dependencies
+3. Install the python package and dependencies in edit mode
 
     cd maskr
     pip install -e .
 
-3. Download the pretrained coco weights from [Google Drive](https://drive.google.com/open?id=1LXUgC2IZUYNEoXr05tdqyKFZY0pZyPDc).
+4. Download the pretrained coco weights from [Google Drive](https://drive.google.com/open?id=1LXUgC2IZUYNEoXr05tdqyKFZY0pZyPDc).
 
 ## Acknowledgements and links
 
@@ -87,6 +89,8 @@ These are the main papers that led to maskrcnn:
 
 
 ### Packages
+
+This package was based on the multimodal package which was based on matterport.
 
 [Matterport Mask_RCNN](https://github.com/matterport/Mask_RCNN). A keras/tensorflow implementation of maskrcnn
 

@@ -13,7 +13,7 @@ DATA = join(expanduser("~"), "data", "nuke")
 def get_data(config):
     " return a databunch based on config"
 
-    # create validation sample
+    # define samples
     pvalid = .2
     trainpath = join(DATA, "stage1_train")
     df = pd.DataFrame(os.listdir(trainpath), columns=["image"])
@@ -23,14 +23,15 @@ def get_data(config):
     df.to_pickle(join(DATA, "subset.pkl"))
     log.info(df.subset.value_counts())
 
+    # load datasets
     train_ds = Dataset(config)
     train_ds.load_nuke(trainpath, "train")
     train_ds.prepare()
-
     val_ds = Dataset(config)
     val_ds.load_nuke(trainpath, "valid")
     val_ds.prepare()
 
+    # define dataloaders
     train_gen = torch.utils.data.DataLoader(train_ds, batch_size=config.BATCH_SIZE,
                                             shuffle=config.SHUFFLE, num_workers=config.WORKERS)
     val_gen = torch.utils.data.DataLoader(val_ds, batch_size=config.BATCH_SIZE, num_workers=config.WORKERS)

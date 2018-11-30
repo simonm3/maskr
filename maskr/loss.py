@@ -43,7 +43,6 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
     # neutral anchors (match value of 0 or -1) don't.
     targets = []
     rpns = []
-    # todo can't this be trimmed earlier when rpn_bbox created?
     # process each item per batch separately as need to trim the target box to right size
     for target_bbox, rpn_match, rpn_bbox in zip(target_bbox, rpn_match, rpn_bbox):
         # Positive anchors contribute to the loss, but negative and
@@ -76,7 +75,14 @@ def mrcnn_class(target_class_ids, pred_class_logits):
         padding to fill in the numpy.
     pred_class_logits: [batch, num_rois, num_classes]
     """
-    # todo align sizes and comments in this file e.g. 2 images/batch => 138 ROIS
+    # remove batch dimension
+    target_class_ids, pred_class_logits = unbatch([target_class_ids, pred_class_logits])
+
+    # remove zero padding rois. note include background rois with class_id=0
+    ix = pred_class_logits.ne(0).nonzero()[:, 0].unique()
+    target_class_ids = target_class_ids[ix]
+    pred_class_logits = pred_class_logits[ix]
+
     if len(target_class_ids):
         loss = F.cross_entropy(pred_class_logits, target_class_ids.long())
     else:
@@ -92,17 +98,20 @@ def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
     target_class_ids: [batch, num_rois]. Integer class IDs.
     pred_bbox: [batch, num_rois, num_classes, (dy, dx, log(dh), log(dw))]
     """
-    if len(target_class_ids):
-        # Only positive ROIs contribute to the loss. And only
-        # the right class_id of each ROI. Get their indicies.
-        positive_roi_ix = torch.nonzero(target_class_ids > 0)[:, 0]
-        positive_roi_class_ids = target_class_ids[positive_roi_ix].long()
-        indices = torch.stack((positive_roi_ix, positive_roi_class_ids), dim=1)
+    # remove batch dimension
+    target_bbox, target_class_ids, pred_bbox = unbatch([target_bbox, target_class_ids, pred_bbox])
 
-        # Gather the deltas (predicted and true) that contribute to loss
-        target_bbox = target_bbox[indices[:, 0], :]
-        pred_bbox = pred_bbox[indices[:, 0], indices[:, 1], :]
+    # Only positive ROIs contribute to the loss. And only
+    # the right class_id of each ROI. Get their indicies.
+    positive_roi_ix = torch.nonzero(target_class_ids > 0)[:, 0]
+    positive_roi_class_ids = target_class_ids[positive_roi_ix].long()
+    indices = torch.stack((positive_roi_ix, positive_roi_class_ids), dim=1)
 
+    # Gather the deltas (predicted and true) that contribute to loss
+    target_bbox = target_bbox[indices[:, 0], :]
+    pred_bbox = pred_bbox[indices[:, 0], indices[:, 1], :]
+
+    if len(pred_bbox)>0:
         # Smooth L1 loss
         loss = F.smooth_l1_loss(pred_bbox, target_bbox)
     else:
@@ -121,18 +130,21 @@ def mrcnn_mask(target_masks, target_class_ids, pred_masks):
     pred_masks: [batch, proposals, height, width, num_classes] float32 tensor
                 with values from 0 to 1.
     """
-    if len(target_class_ids):
-        # Only positive ROIs contribute to the loss. And only
-        # the class specific mask of each ROI.
-        positive_ix = torch.nonzero(target_class_ids > 0)[:, 0]
-        positive_class_ids = target_class_ids[positive_ix].long()
+    # remove batch dimension
+    target_masks, target_class_ids, pred_masks = unbatch([target_masks, target_class_ids, pred_masks])
 
-        indices = torch.stack((positive_ix, positive_class_ids), dim=1)
+    # Only positive ROIs contribute to the loss. And only
+    # the class specific mask of each ROI.
+    positive_ix = torch.nonzero(target_class_ids > 0)[:, 0]
+    positive_class_ids = target_class_ids[positive_ix].long()
 
-        # Gather the masks (predicted and true) that contribute to loss
-        y_true = target_masks[indices[:, 0], :, :]
-        y_pred = pred_masks[indices[:, 0], indices[:, 1], :, :]
+    indices = torch.stack((positive_ix, positive_class_ids), dim=1)
 
+    # Gather the masks (predicted and true) that contribute to loss
+    y_true = target_masks[indices[:, 0], :, :]
+    y_pred = pred_masks[indices[:, 0], indices[:, 1], :, :]
+
+    if len(y_pred)>0:
         # Binary cross entropy
         loss = F.binary_cross_entropy(y_pred, y_true)
     else:

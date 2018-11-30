@@ -2,7 +2,7 @@ import torch
 from maskr.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
 from maskr.utils import box_utils
 from maskr.baseline import save, saveall
-from maskr.utils.batch import batch_slice
+from maskr.utils.batch import batch_slice, pad
 
 import logging
 log = logging.getLogger()
@@ -32,6 +32,13 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
                  Masks cropped to bbox boundaries and resized to neural
                  network output size.
     """
+    # define outputs
+    positive_rois = torch.empty(0)
+    negative_rois = torch.empty(0)
+    class_ids = torch.empty(0)
+    deltas = torch.empty(0)
+    masks = torch.empty(0)
+
     # Normalize coordinates
     h, w = config.IMAGE_SHAPE[:2]
     scale = torch.tensor([h, w, h, w]).float()
@@ -81,7 +88,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         positive_overlaps = overlaps[positive_indices, :]
         roi_gt_box_assignment = torch.max(positive_overlaps, dim=1)[1]
         roi_gt_boxes = gt_boxes[roi_gt_box_assignment, :]
-        roi_gt_class_ids = gt_class_ids[roi_gt_box_assignment]
+        class_ids = gt_class_ids[roi_gt_box_assignment]
 
         # Compute bbox refinement for positive ROI
         deltas = box_utils.box_refinement(positive_rois, roi_gt_boxes)
@@ -127,35 +134,14 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         rand_idx = torch.randperm(len(negative_indices))
         rand_idx = rand_idx[:negative_count]
         negative_indices = negative_indices[rand_idx]
-        negative_count = len(negative_indices)
         negative_rois = proposals[negative_indices, :]
-    else:
-        negative_count = 0
 
-    # Append negative ROIs and pad bbox deltas and masks that
-    # are not used for negative ROIs with zeros
-    if positive_count > 0 and negative_count > 0:
-        rois = torch.cat((positive_rois, negative_rois), dim=0)
-        zeros = torch.zeros(negative_count).float()
-        roi_gt_class_ids = torch.cat([roi_gt_class_ids, zeros], dim=0)
-        zeros = torch.zeros(negative_count, 4)
-        deltas = torch.cat([deltas, zeros], dim=0)
-        zeros = torch.zeros(negative_count, *config.MASK_SHAPE)
-        masks = torch.cat([masks, zeros], dim=0)
-    elif positive_count > 0:
-        rois = positive_rois
-    elif negative_count > 0:
-        rois = negative_rois
-        zeros = torch.zeros(negative_count)
-        roi_gt_class_ids = zeros
-        zeros = torch.zeros(negative_count, 4).int()
-        deltas = zeros
-        zeros = torch.zeros(negative_count, *config.MASK_SHAPE)
-        masks = zeros
-    else:
-        rois = torch.empty(0)
-        roi_gt_class_ids = torch.empty(0)
-        deltas = torch.empty(0)
-        masks = torch.empty(0)
+    # pad to len(rois) so later can concatenate and remove zeros using index.
+    # can't pack/unpack as we need class_ids that equal zero for negative rois
+    rois = torch.cat((positive_rois, negative_rois), dim=0)
+    class_ids = pad(class_ids, len(rois))
+    deltas = pad(deltas, len(rois))
+    masks = pad(masks, len(rois))
 
-    return rois, roi_gt_class_ids, deltas, masks
+    return rois, class_ids, deltas, masks
+
