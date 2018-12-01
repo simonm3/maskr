@@ -39,8 +39,6 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
                -1=negative, 0=neutral anchor.
     rpn_bbox: [batch, anchors, (dy, dx, log(dh), log(dw))]
     """
-    # Positive anchors contribute to the loss, but negative and
-    # neutral anchors (match value of 0 or -1) don't.
     targets = []
     rpns = []
     # process each item per batch separately as need to trim the target box to right size

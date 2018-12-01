@@ -101,7 +101,7 @@ class MaskRCNN(nn.Module):
         proposal_count = config.POST_NMS_ROIS_TRAINING if self.training \
             else config.POST_NMS_ROIS_INFERENCE
         rois = proposals(rpn_class, rpn_bbox, proposal_count,
-                         self.anchors.to(self.config.DEVICE),
+                         self.anchors.to(config.DEVICE),
                          config=config)
 
         if not config.HEAD:
@@ -148,7 +148,14 @@ class MaskRCNN(nn.Module):
         if not isinstance(images, list):
             images = [images]
 
+        # setup model
         self.eval()
+        if self.config.GPU_COUNT > 0:
+            self.cuda()
+            torch.set_default_tensor_type(torch.cuda.FloatTensor)
+        else:
+            self.cpu()
+            torch.set_default_tensor_type(torch.FloatTensor)
 
         # prepare inputs without using dataset
         molded_images = []

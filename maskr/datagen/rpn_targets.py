@@ -1,6 +1,7 @@
 from maskr.utils import box_utils
 from torch import from_numpy
 import numpy as np
+import torch
 import logging
 log = logging.getLogger()
 
@@ -91,6 +92,6 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     rpn_bbox[:len(boxes)] = boxes
 
     # Normalize
-    rpn_bbox /= config.RPN_BBOX_STD_DEV
+    rpn_bbox /= torch.tensor(config.RPN_BBOX_STD_DEV).float().reshape([1,4])
 
     return rpn_match, rpn_bbox

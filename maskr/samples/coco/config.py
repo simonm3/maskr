@@ -1,4 +1,4 @@
-from datagen.config import Config
+from maskr.config import Config
 
 class Config(Config):
 

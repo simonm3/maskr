@@ -91,7 +91,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
 
         # Compute bbox refinement for positive ROI
         deltas = box_utils.box_refinement(positive_rois, roi_gt_boxes)
-        std_dev = torch.tensor(config.BBOX_STD_DEV).float()
+        std_dev = torch.tensor(config.BBOX_STD_DEV).float().reshape([1,4])
         deltas /= std_dev
 
         # Assign positive ROIs to GT masks
