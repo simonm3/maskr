@@ -4,7 +4,7 @@ from maskr.utils import box_utils
 from maskr.lib.nms.nms_wrapper import nms
 from maskr.utils.batch import batch_slice
 
-from maskr.baseline import save, saveall
+from maskr.test.baseline import saveall
 import logging
 log = logging.getLogger()
 

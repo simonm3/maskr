@@ -1,10 +1,9 @@
 from maskr.utils import box_utils
-import torch
-from torch import tensor, from_numpy
+from torch import from_numpy
 import numpy as np
 import logging
 log = logging.getLogger()
-from maskr.baseline import save, saveall
+
 
 def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     """Given the anchors and GT boxes, compute overlaps and identify positive

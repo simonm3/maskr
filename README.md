@@ -1,27 +1,24 @@
 # Pytorch MaskRCNN
 
-This is a Pytorch/Fastai implementation of MaskRCNN based on work by Matterport and MultiModal Learning
-(see acknowledgements at bottom of page). Mainly a personal learning exercise but the simplified structure may help others wanting to understand maskrcnn.
+This is a Pytorch/Fastai implementation of MaskRCNN based on previous versions by Matterport and MultiModal Learning (see acknowledgements at bottom of page). This was mainly a personal learning exercise but the simplified structure may help others wanting to understand maskrcnn.
 
-Completed:
+Includes:
 
 * Overview diagram that shows the key components of maskRCNN
-* Code restructured to match the diagram to make it easy to understand and experiment with each part.
-* Decluttered and cleaned up
+* Code cleaned up and structured as per the diagram to make it easy to understand and experiment with each part.
 * Works with pytorch v1 and fastai v1
 * Training and prediction working on nuke data from 2017 kaggle bowl
 
 Todo:
 
-* More tests. How do you know it is working?
+* More tests. How can it best be tested?
 * Could the experimental test framework be useful for continuous testing? Is there a good framework already written?
 * How to expand testing to keras.  i.e. how to adapt matterport for eager mode?
-* Examples of outputs from each box on the diagram
 
 ## Structure
 
 [This diagram shows how it all fits together](maskr.jpg)
-Note that training and detection follow slightly different paths.
+Note that training and prediction follow slightly different paths.
 
 The core code reflects the diagram:
 * datagen - anchors, dataset, head_targets, rpn_targets
@@ -39,41 +36,43 @@ Utilities
 Samples
  * Applications typically with dataset, config, learner, notebooks
 
-Baseline/Test (experimental)
+Test (experimental)
 * baseline - classes to help compare a new versus baseline version
-* test - pytest functions
-    - limited number of tests versus multimodal
+* test_*.py
+    - limited number of pytest functions versus multimodal
     - tried versus matterport but original needs adapting to work with eager mode
+* tests.ipynb - notebook to run pytests
 
 ## Installation
 1. Clone this repository.
 
         git clone https://github.com/simonm3/maskmm.git
+
+2. Download pretrained coco weights from [Google Drive](https://drive.google.com/open?id=1LXUgC2IZUYNEoXr05tdqyKFZY0pZyPDc).
         
-2. Build the nms and roialign binaries:
+3. Build the nms and roialign binaries:
     cd maskmm/maskmm/lib
     ./make.sh
     
-3. Install the python package and dependencies in edit mode
+4. Install the python package and dependencies in edit mode
 
     cd maskr
     pip install -e .
 
-4. Download the pretrained coco weights from [Google Drive](https://drive.google.com/open?id=1LXUgC2IZUYNEoXr05tdqyKFZY0pZyPDc).
-
 ## Acknowledgements and links
 
-### Overviews
+### Blogs
+These are useful introductions to image segmentation and maskrcnn
 
-[Summary](https://blog.athelas.com/a-brief-history-of-cnns-in-image-segmentation-from-r-cnn-to-mask-r-cnn-34ea83205de4) Useful blog that summarises and explains the key steps that led to maskrcnn.
+[A Brief History of CNNs in Image Segmentation: From R-CNN to Mask R-CNN](https://blog.athelas.com/a-brief-history-of-cnns-in-image-segmentation-from-r-cnn-to-mask-r-cnn-34ea83205de4) 
 
-[Intro to region based models](http://deeplearning.csail.mit.edu/instance_ross.pdf). Introduction written by Ross Girshick who created maskrcnn.
+[Deep Learning for Instance-level Object Understanding. Tutorial	on	Deep	Learning for Objects and Scenes (by Ross Girshick)](http://deeplearning.csail.mit.edu/instance_ross.pdf). 
 
-[Another intro blog](https://medium.com/ilenze-com/object-detection-using-deep-learning-for-advanced-users-part-1-183bbbb08b19) Object detection using deep learning for advanced users
+[Object Detection using Deep Learning for advanced users](https://medium.com/ilenze-com/object-detection-using-deep-learning-for-advanced-users-part-1-183bbbb08b19) 
 
-[Intro to fasterRCNN](https://tryolabs.com/blog/2018/01/18/faster-r-cnn-down-the-rabbit-hole-of-modern-object-detection/) Down the rabbit hole of modern object detection
+[Faster R-CNN: Down the rabbit hole of modern object detection](https://tryolabs.com/blog/2018/01/18/faster-r-cnn-down-the-rabbit-hole-of-modern-object-detection/) 
 
-[ROI pooling intro](https://deepsense.ai/region-of-interest-pooling-explained/) Region of Interest Pooling explained.
+[Region of Interest Pooling explained](https://deepsense.ai/region-of-interest-pooling-explained/) 
 
 ### Papers
 

@@ -1,7 +1,6 @@
 import torch
 from maskr.lib.roialign.roi_align.crop_and_resize import CropAndResizeFunction
 from maskr.utils import box_utils
-from maskr.baseline import save, saveall
 from maskr.utils.batch import batch_slice, pad
 
 import logging

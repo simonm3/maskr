@@ -19,8 +19,6 @@ from .resnet import ResNet
 from .resnetFPN import FPN
 from .head import Classifier, Mask
 
-from maskr.baseline import save
-
 import logging
 log = logging.getLogger()
 

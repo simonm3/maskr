@@ -1,9 +1,26 @@
 """
-setup jupyter for datagen analysis.
-can put in spyder preferences to load when ipython console starts. 
+configures notebooks with common extensions and imports
+
+Usage:
+     at top of notebook:
+        from ipstartup import *
 """
 import os
 import sys
+
+################## analysis ################################
+import scipy as sp
+import pandas as pd
+import numpy as np
+
+################# visualisation #############################
+from pprint import pprint
+import matplotlib as mpl
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+from IPython.display import display as d
+
+################# logging #############################
 from os.path import join, expanduser
 import yaml
 import logging
@@ -16,47 +33,12 @@ if log.getEffectiveLevel() > logging.DEBUG:
     warnings.filterwarnings("ignore")
 log.info("")
 
-# configure ipython
+################# notebook extensions #############################
 try:
     get_ipython().magic('load_ext autoreload')
-    get_ipython().magic('autoreload 2')      # autoreload all modules
-    get_ipython().magic('matplotlib inline')  # show charts inline
-    get_ipython().magic('load_ext cellevents')  # show time and alert
+    get_ipython().magic('autoreload 2')
+    get_ipython().magic('matplotlib inline')
+    # show start time, elapsed time; alert on finish; %%s suppress execution
+    get_ipython().magic('load_ext cellevents')
 except:
     pass
-
-################## analysis ################################
-import scipy as sp
-import pandas as pd
-import numpy as np
-
-################# visualisation #############################
-from pprint import pprint
-import matplotlib as mpl
-import matplotlib.cm as cm
-import matplotlib.pyplot as plt
-
-from IPython.display import display as d
-from IPython.core.display import HTML
-
-# my stuff
-try:
-    from analysis.explore import xlo
-except:
-    pass
-try:
-    from analysis.plot import Gridplot
-    gridplot = Gridplot()
-except:
-    pass
-
-
-def wide():
-    """ makes notebook fill screen width """
-    d(HTML("<style>.container { width:100% !important; }</style>"))
-
-
-def flog(text):
-    """ for finding logging problems """
-    with open("c:/log1.txt", "a") as f:
-        f.write(str(text))

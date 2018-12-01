@@ -1,13 +1,10 @@
 import skimage
 from skimage.io import imread
 import numpy as np
-import torch
 from torch import from_numpy
 from torch.utils.data import Dataset
 from maskr.utils import box_utils, image_utils, batch
 from maskr.datagen.rpn_targets import build_rpn_targets
-
-from maskr.baseline import save, saveall
 
 import logging
 log = logging.getLogger()

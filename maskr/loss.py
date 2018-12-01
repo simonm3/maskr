@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from maskr.baseline import saveall
+from maskr.test.baseline import saveall
 from maskr.utils.batch import unbatch
 import logging
 log = logging.getLogger()
@@ -53,7 +53,10 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
         rpn_bbox = rpn_bbox[indices[:, 0]]
 
         # Trim target bounding box deltas to the same length as rpn_bbox
-        target_bbox = target_bbox[:len(rpn_bbox)]
+        # todo if this is needed then also needed in head?
+        if len(target_bbox) < len(rpn_bbox):
+            log.warning("more rpn_targets than rpns")
+            target_bbox = target_bbox[:len(rpn_bbox)]
 
         targets.append(target_bbox)
         rpns.append(rpn_bbox)

@@ -4,7 +4,6 @@
 
 import torch.nn as nn
 from .samepad2d import SamePad2d
-from maskr.baseline import save
 import logging
 log = logging.getLogger()
 

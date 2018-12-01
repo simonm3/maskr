@@ -1,5 +1,5 @@
 import pytest
-from maskr.baseline import Test, Baseline
+from maskr.test.baseline import Test, Baseline
 
 @pytest.fixture()
 def t():
