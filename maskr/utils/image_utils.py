@@ -221,7 +221,7 @@ def unmold_detections(boxes, class_ids, scores, masks, image_shape, image_meta):
     masks: [height, width, num_instances] Instance masks
     """
     # strip padding
-    ix = class_ids.ne(0).nonzero()[:, 0].unique()
+    ix = class_ids.ne(0).nonzero()[:, 0]
     boxes, class_ids, scores, masks = [var[ix] for var in [boxes, class_ids, scores, masks]]
 
     masks = masks.permute(0, 2, 3, 1)

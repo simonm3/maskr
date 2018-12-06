@@ -1,6 +1,6 @@
 import pytest
 import torch
-from datagen.config import Config
+from maskr.datagen.config import Config
 config = Config()
 
 import model

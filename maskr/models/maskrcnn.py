@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.utils.data
 from torch import from_numpy
+import skimage
+import numpy as np
 
 from maskr.utils import image_utils
 from maskr.utils.batch import batch_slice
@@ -98,8 +100,7 @@ class MaskRCNN(nn.Module):
         rpn_class_logits, rpn_class, rpn_bbox = outputs
 
         # Generate proposals [batch, N, (y1, x1, y2, x2)] in normalized coordinates, zero padded.
-        proposal_count = config.POST_NMS_ROIS_TRAINING if self.training \
-            else config.POST_NMS_ROIS_INFERENCE
+        proposal_count = config.POST_NMS_ROIS_TRAINING if targets else config.POST_NMS_ROIS_INFERENCE
         rois = proposals(rpn_class, rpn_bbox, proposal_count,
                          self.anchors.to(config.DEVICE),
                          config=config)
@@ -150,24 +151,36 @@ class MaskRCNN(nn.Module):
 
         # setup model
         self.eval()
-        if self.config.GPU_COUNT > 0:
+        if self.config.DEVICE=="cuda":
             self.cuda()
             torch.set_default_tensor_type(torch.cuda.FloatTensor)
         else:
             self.cpu()
             torch.set_default_tensor_type(torch.FloatTensor)
 
-        # prepare inputs without using dataset
+        # dataset
         molded_images = []
         image_shapes = []
         image_metas = []
         for image in images:
+            # If grayscale or rgba then convert to RGB for consistency (load_image)
+            if image.ndim != 3:
+                image = skimage.color.gray2rgb(image) * 255
+            elif image.shape[-1] == 4:
+                image = skimage.color.rgba2rgb(image) * 255
+            image = image.astype(np.uint8)
+
+            # image and shape (__get_item__
             image_shapes.append(torch.tensor(image.shape))
             image, window, scale, padding = image_utils.resize_image(image, self.config)
             image = image_utils.mold_image(image, self.config)
             molded_images.append(image)
+
+            # image meta
             image_meta = image_utils.mold_meta(dict(window=window))
             image_metas.append(image_meta)
+
+        # dataloader
         molded_images = torch.stack(molded_images)
         image_metas = torch.stack(image_metas)
         image_shapes = torch.stack(image_shapes)

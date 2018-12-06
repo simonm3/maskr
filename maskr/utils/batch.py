@@ -71,7 +71,8 @@ def unpack(variables):
     """
     all_unpacked = []
     for v in variables:
-        unpacked = [item[item.ne(0).nonzero()[:, 0].unique()] for item in v]
+        # note on gpu sorted; on cpu not unless specified
+        unpacked = [item[item.ne(0).nonzero()[:, 0].unique(sorted=True)] for item in v]
         all_unpacked.append(unpacked)
     return all_unpacked
 

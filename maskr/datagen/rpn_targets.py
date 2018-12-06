@@ -1,7 +1,6 @@
 from maskr.utils import box_utils
 from torch import from_numpy
 import numpy as np
-import torch
 import logging
 log = logging.getLogger()
 

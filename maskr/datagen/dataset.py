@@ -2,6 +2,7 @@ import skimage
 from skimage.io import imread
 import numpy as np
 from torch import from_numpy
+import torch
 from torch.utils.data import Dataset
 from maskr.utils import box_utils, image_utils, batch
 from maskr.datagen.rpn_targets import build_rpn_targets
@@ -140,7 +141,8 @@ class Dataset(Dataset):
             image = skimage.color.gray2rgb(image)*255
         elif image.shape[-1] == 4:
             image = skimage.color.rgba2rgb(image)*255
-        return image.astype(np.uint8)
+        image = image.astype(np.uint8)
+        return image
 
     def load_mask(self, image_id):
         # Override this function to load a mask from your dataset.
@@ -159,6 +161,7 @@ class Dataset(Dataset):
 
         # If no instances then skip. e.g. image has none of classes we care about.
         if (gt_class_ids==0).all():
+            # todo fails in dataloader
             return None
 
         # rpn_targets
@@ -168,6 +171,9 @@ class Dataset(Dataset):
         gt_class_ids = batch.pad(from_numpy(gt_class_ids), self.config.MAX_GT_INSTANCES)
         gt_boxes = batch.pad(from_numpy(gt_boxes), self.config.MAX_GT_INSTANCES)
         gt_masks = batch.pad(from_numpy(gt_masks), self.config.MAX_GT_INSTANCES)
+
+        rpn_match = from_numpy(rpn_match)
+        rpn_bbox = from_numpy(rpn_bbox)
 
         # fastai requires a "y"
         return [image, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks], 0
@@ -216,21 +222,27 @@ class Dataset(Dataset):
         # image
         image = image_utils.mold_image(image, self.config)
 
-        # Bounding boxes. some boxes might be all zeros if the corresponding mask got cropped out
+        # Bounding boxes
         bbox = box_utils.extract_bboxes(mask)
+
+        # remove any empty boxes created when augmentation removes item from image.
+        ix = bbox.any(axis=1).nonzero()[0]
+        mask = mask[:, :, ix]
+        class_ids = class_ids[ix]
+        bbox = bbox[ix]
 
         # compress masks to reduce memory usage
         if use_mini_mask:
             mask = image_utils.minimize_mask(bbox, mask, self.config.MINI_MASK_SHAPE)
 
-        # convert [h,w,N] to [N,h,w] to align with other inputs having N first
-        mask = mask.transpose(2, 0, 1)
-
-        # remove any empty masks
-        ix = (mask>0).any(axis=(1,2))
-        mask = mask[ix]
+        # remove any empty masks created by minimize mask
+        ix = mask.any(axis=(0,1)).nonzero()[0]
+        mask = mask[:, :, ix]
         class_ids = class_ids[ix]
         bbox = bbox[ix]
+
+        # convert [h,w,N] to [N,h,w] to align with other inputs having N first
+        mask = mask.transpose(2, 0, 1)
 
         # float needed later to scale, compute_overlaps and box_refinement
         class_ids = class_ids.astype(np.float32)

@@ -3,7 +3,7 @@ import model
 import torch
 from maskr.filters.proposals import proposals
 from maskr.filters.roialign import roialign
-from maskr.filters.detections import get_detections
+from maskr.filters.detections import detections
 
 import logging
 log = logging.getLogger()
@@ -37,4 +37,4 @@ def test_detections():
         t.inputs = rois, probs, deltas, image_meta, config
         t.baseline.results = t.baseline.results[:, :4], t.baseline.results[:, 4], t.baseline.results[:, 5]
     t.postLoad = postLoad
-    t.run(model.refine_detections, get_detections)
+    t.run(model.refine_detections, detections)

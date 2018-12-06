@@ -3,30 +3,21 @@ import torch
 from fastai import *
 from maskr.models.maskrcnn import MaskRCNN
 from maskr.callbacks import *
-from maskr.samples.nuke.dataset import Dataset
+from maskr.samples.shapes.dataset import ShapesDataset
 
 ROOT_DIR = "/home/ubuntu/maskr"
-DATA = join(expanduser("~"), "data", "nuke")
 
 def get_data(config):
     " return a databunch based on config"
 
-    # define samples
-    pvalid = .2
-    trainpath = join(DATA, "stage1_train")
-    df = pd.DataFrame(os.listdir(trainpath), columns=["image"])
-    train = np.random.random(len(df))>pvalid
-    df.loc[train, "subset"] = "train"
-    df.loc[~train, "subset"] = "valid"
-    df.to_pickle(join(DATA, "subset.pkl"))
-    log.info(df.subset.value_counts())
-
-    # load datasets
-    train_ds = Dataset(config)
-    train_ds.load_nuke(trainpath, "train")
+    # Training dataset
+    train_ds = ShapesDataset(config)
+    train_ds.load_shapes(500, config.IMAGE_SHAPE[0], config.IMAGE_SHAPE[1])
     train_ds.prepare()
-    val_ds = Dataset(config)
-    val_ds.load_nuke(trainpath, "valid")
+
+    # Validation dataset
+    val_ds = ShapesDataset(config)
+    val_ds.load_shapes(50, config.IMAGE_SHAPE[0], config.IMAGE_SHAPE[1])
     val_ds.prepare()
 
     # define dataloaders

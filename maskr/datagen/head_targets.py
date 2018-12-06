@@ -88,14 +88,12 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         roi_gt_box_assignment = torch.max(positive_overlaps, dim=1)[1]
         roi_gt_boxes = gt_boxes[roi_gt_box_assignment, :]
         class_ids = gt_class_ids[roi_gt_box_assignment]
+        roi_masks = gt_masks[roi_gt_box_assignment, :, :]
 
         # Compute bbox refinement for positive ROI
         deltas = box_utils.box_refinement(positive_rois, roi_gt_boxes)
         std_dev = torch.tensor(config.BBOX_STD_DEV).float().reshape([1,4])
         deltas /= std_dev
-
-        # Assign positive ROIs to GT masks
-        roi_masks = gt_masks[roi_gt_box_assignment, :, :]
 
         # Compute mask targets
         boxes = positive_rois

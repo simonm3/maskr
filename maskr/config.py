@@ -161,6 +161,10 @@ class Config(object):
         """Set values of computed attributes."""
         if self.GPU_COUNT > 0:
             self.DEVICE = "cuda"
+            torch.backends.cudnn.benchmark = True
+        else:
+            self.DEVICE = "cpu"
+            torch.backends.cudnn.benchmark = False
 
         # default weights is pretrained coco
         self.WEIGHTS = os.path.abspath(join(os.path.dirname(__file__),

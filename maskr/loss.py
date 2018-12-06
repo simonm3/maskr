@@ -53,6 +53,8 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
         # Trim target bounding box deltas to the same length as rpn_bbox
         target_bbox = target_bbox[:len(rpn_bbox)]
 
+        #log.info((rpn_bbox.shape, target_bbox.shape))
+
         targets.append(target_bbox)
         rpns.append(rpn_bbox)
 
@@ -77,7 +79,7 @@ def mrcnn_class(target_class_ids, pred_class_logits):
     target_class_ids, pred_class_logits = unbatch([target_class_ids, pred_class_logits])
 
     # remove zero padding rois. note include background rois with class_id=0
-    ix = pred_class_logits.ne(0).nonzero()[:, 0].unique()
+    ix = pred_class_logits.ne(0).any(dim=0).nonzero()[:, 0]
     target_class_ids = target_class_ids[ix]
     pred_class_logits = pred_class_logits[ix]
 

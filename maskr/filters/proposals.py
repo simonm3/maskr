@@ -52,7 +52,7 @@ def proposals(rpn_class, rpn_bbox, proposal_count, anchors, config):
     # for small objects, so we're skipping it.
 
     # Non-max suppression
-    keep = nms(torch.cat((boxes, rpn_class.unsqueeze(1)), 1), config.RPN_NMS_THRESHOLD)
+    keep = nms(torch.cat((boxes, rpn_class.unsqueeze(1)), dim=1), config.RPN_NMS_THRESHOLD)
     keep = keep[:proposal_count]
     boxes = boxes[keep, :]
 
