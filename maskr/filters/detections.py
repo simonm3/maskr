@@ -55,7 +55,7 @@ def detections(rois, probs, deltas, image_meta, config):
 
     # Apply bounding box deltas
     # Shape: [boxes, (y1, x1, y2, x2)] in normalized coordinates
-    std_dev = torch.tensor(np.reshape(config.RPN_BBOX_STD_DEV, [1, 4])).float()
+    std_dev = torch.tensor(config.RPN_BBOX_STD_DEV).float().reshape([1,4])
     refined_rois = box_utils.apply_box_deltas(rois, deltas_specific * std_dev)
 
     unscaled_rois = torch.tensor(refined_rois)

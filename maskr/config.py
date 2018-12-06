@@ -180,9 +180,6 @@ class Config(object):
                                                 self.BACKBONE_STRIDES,
                                                 self.RPN_ANCHOR_STRIDE)
 
-        self.RPN_BBOX_STD_DEV = np.array(self.RPN_BBOX_STD_DEV).astype(np.float32)
-        self.BBOX_STD_DEV = np.array(self.BBOX_STD_DEV).astype(np.float32)
-
     def display(self):
         """Display Configuration values."""
         print("\nConfigurations:")
