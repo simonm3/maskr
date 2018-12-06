@@ -9,7 +9,7 @@ import skimage
 import numpy as np
 
 from maskr.utils import image_utils
-from maskr.utils.batch import batch_slice
+from maskr.utils.batch import batch_slice, unpack
 
 from maskr.datagen.head_targets import build_head_targets
 from maskr.filters.proposals import proposals
@@ -67,14 +67,19 @@ class MaskRCNN(nn.Module):
 
         targets = len(inputs)>2
 
+        # split into two paths for training and prediction
         if targets:
             # training/validation mode. inputs from dataloader/dataset
             # tgt_rpn_match and tgt_rpn_bbox not used but passed through because.....
             # fastai loss is calculated in callback to store results but this has single param output of this function.
             # fastai loss_func is not able to store intermediate results
-            images, image_metas,\
+            images, image_metas, \
             tgt_rpn_match, tgt_rpn_bbox, \
             gt_class_ids, gt_boxes, gt_masks = inputs
+
+            # zero padding was added as fastai only supports tensors
+            # batch dimension is a list with one tensor per item
+            gt_class_ids, gt_boxes, gt_masks = unpack([gt_class_ids, gt_boxes, gt_masks])
         else:
             images, image_metas = inputs
 
@@ -117,11 +122,11 @@ class MaskRCNN(nn.Module):
 
             # class head
             x = roialign(rois, *feature_maps, config.POOL_SIZE, config.IMAGE_SHAPE)
-            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice()(self.classifier)(x)
+            mrcnn_class_logits, mrcnn_probs, mrcnn_deltas = batch_slice(1)(self.classifier)(x)
 
             # mask head
             x = roialign(rois, *feature_maps, config.MASK_POOL_SIZE, config.IMAGE_SHAPE)
-            mrcnn_mask = batch_slice()(self.mask)(x)
+            mrcnn_mask = batch_slice(1)(self.mask)(x)
 
             return dict(out=[tgt_rpn_match, tgt_rpn_bbox, \
                              rpn_class_logits, rpn_bbox, \
@@ -135,7 +140,7 @@ class MaskRCNN(nn.Module):
             # detections filter speeds inference and improves accuracy (see maskrcnn paper)
             #### putting this after mask head is much worse!!!
             # boxes are image domain for output. rois are as above but filtered i.e. suitable for mask head.
-            boxes, class_ids, scores, rois = batch_slice(4, 3)\
+            boxes, class_ids, scores, rois = batch_slice(4)\
                             (detections)(rois, mrcnn_probs, mrcnn_deltas, image_metas, config)
 
             # mask head

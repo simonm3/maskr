@@ -53,8 +53,6 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
         # Trim target bounding box deltas to the same length as rpn_bbox
         target_bbox = target_bbox[:len(rpn_bbox)]
 
-        #log.info((rpn_bbox.shape, target_bbox.shape))
-
         targets.append(target_bbox)
         rpns.append(rpn_bbox)
 

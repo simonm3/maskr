@@ -4,7 +4,7 @@ from maskr.utils.batch import batch_slice
 import logging
 log = logging.getLogger()
 
-@batch_slice(5, 1)
+@batch_slice(5)
 def roialign(boxes, p2, p3, p4, p5, pool_size, image_shape):
     """Implements ROI Pooling on multiple levels of the feature pyramid.
 

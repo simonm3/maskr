@@ -55,14 +55,17 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     # However, don't keep any GT box unmatched (rare, but happens). Instead,
     # match it to the closest anchor (even if its max IoU is < 0.3).
     #
+
     # 1. Set negative anchors first. They get overwritten below if a GT box is
     # matched to them. Skip boxes in crowd areas.
     anchor_iou_argmax = np.argmax(overlaps, axis=1)
     anchor_iou_max = overlaps[np.arange(overlaps.shape[0]), anchor_iou_argmax]
     rpn_match[(anchor_iou_max < 0.3) & (no_crowd_bool)] = -1
+
     # 2. Set an anchor for each GT box (regardless of IoU value).
     gt_iou_argmax = np.argmax(overlaps, axis=0)
     rpn_match[gt_iou_argmax] = 1
+
     # 3. Set anchors with high overlap as positive.
     rpn_match[anchor_iou_max >= 0.7] = 1
 
@@ -74,6 +77,7 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
         # Reset the extra ones to neutral
         ids = np.random.choice(ids, extra, replace=False)
         rpn_match[ids] = 0
+
     # Same for negative proposals
     ids = np.where(rpn_match == -1)[0]
     extra = len(ids) - (config.RPN_TRAIN_ANCHORS_PER_IMAGE -

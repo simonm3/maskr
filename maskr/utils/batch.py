@@ -6,8 +6,7 @@ log = logging.getLogger()
 
 def unbatch(vars):
     """ combine first 2 dimensions of each var """
-    vars = listify(vars)
-    return unlistify([x.reshape(-1, *x.shape[2:]) for x in vars])
+    return [torch.cat(var) for var in vars]
 
 def listify(x):
     """ allow single item to be treated same as list. simplifies loops and list comprehensions """
@@ -76,7 +75,7 @@ def unpack(variables):
         all_unpacked.append(unpacked)
     return all_unpacked
 
-def batch_slice(slice=1, packed=None):
+def batch_slice(slice=1):
     """ converts a function to process batches
     slice=number of params to slice
     packed=number of zero-padded params. None assumes all.
@@ -108,10 +107,6 @@ def batch_slice(slice=1, packed=None):
             except:
                 pass#log.info("unknown")
 
-            # unpack up to packed. default is all sliced vars
-            n = packed or slice
-            inputs[:n] = unpack(inputs[:n])
-
             # convert from variables/items to items/variables
             # e.g. inputs [[batch, a], [batch, b]] ==> [[a1, b1], [a2, b2]]
             items = list(zip(*inputs))
@@ -122,8 +117,6 @@ def batch_slice(slice=1, packed=None):
             # convert results from items/variables to variables/items
             # e.g. function returns c,d ==> [[c1, d1], [c2, d2]] => [[c1, c2], [d1, d2]]
             results = list(zip(*results))
-
-            results = pack(results)
 
             results = unlistify(results)
 

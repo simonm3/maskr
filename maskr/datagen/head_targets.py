@@ -134,7 +134,7 @@ def build_head_targets(proposals, gt_class_ids, gt_boxes, gt_masks, config):
         negative_rois = proposals[negative_indices, :]
 
     # pad to len(rois) so later can concatenate and remove zeros using index.
-    # can't pack/unpack as we need class_ids that equal zero for negative rois
+    # need class_ids that equal zero for negative rois
     rois = torch.cat((positive_rois, negative_rois), dim=0)
     class_ids = pad(class_ids, len(rois))
     deltas = pad(deltas, len(rois))
