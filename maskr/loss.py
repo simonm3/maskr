@@ -53,10 +53,7 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
         rpn_bbox = rpn_bbox[indices[:, 0]]
 
         # Trim target bounding box deltas to the same length as rpn_bbox
-        # todo if this is needed then also needed in head?
-        if len(target_bbox) < len(rpn_bbox):
-            log.warning("more rpn_targets than rpns")
-            target_bbox = target_bbox[:len(rpn_bbox)]
+        target_bbox = target_bbox[:len(rpn_bbox)]
 
         targets.append(target_bbox)
         rpns.append(rpn_bbox)
@@ -86,10 +83,11 @@ def mrcnn_class(target_class_ids, pred_class_logits):
     target_class_ids = target_class_ids[ix]
     pred_class_logits = pred_class_logits[ix]
 
-    if len(target_class_ids)==0:
-        return torch.tensor([0], requires_grad=False).float()
-
-    loss = F.cross_entropy(pred_class_logits, target_class_ids.long())
+    if len(target_class_ids):
+        loss = F.cross_entropy(pred_class_logits, target_class_ids.long())
+    else:
+        with torch.no_grad():
+            loss = torch.tensor([0]).float()
     return loss
 
 @saveall
@@ -109,15 +107,17 @@ def mrcnn_bbox(target_bbox, target_class_ids, pred_bbox):
     positive_roi_class_ids = target_class_ids[positive_roi_ix].long()
     indices = torch.stack((positive_roi_ix, positive_roi_class_ids), dim=1)
 
-    if len(indices)==0:
-        log.warning("no positive rois")
-        return torch.tensor([0], requires_grad=False).float()
-
     # Gather the deltas (predicted and true) that contribute to loss
     target_bbox = target_bbox[indices[:, 0], :]
     pred_bbox = pred_bbox[indices[:, 0], indices[:, 1], :]
 
-    loss = F.smooth_l1_loss(pred_bbox, target_bbox)
+    if len(pred_bbox)>0:
+        # Smooth L1 loss
+        loss = F.smooth_l1_loss(pred_bbox, target_bbox)
+    else:
+        with torch.no_grad():
+            loss = torch.tensor([0]).float()
+
     return loss
 
 @saveall
@@ -140,13 +140,15 @@ def mrcnn_mask(target_masks, target_class_ids, pred_masks):
 
     indices = torch.stack((positive_ix, positive_class_ids), dim=1)
 
-    if len(indices)==0:
-        log.warning("no positive rois for mask")
-        return torch.tensor([0], requires_grad=False).float()
-
     # Gather the masks (predicted and true) that contribute to loss
     y_true = target_masks[indices[:, 0], :, :]
     y_pred = pred_masks[indices[:, 0], indices[:, 1], :, :]
 
-    loss = F.binary_cross_entropy(y_pred, y_true)
+    if len(y_pred)>0:
+        # Binary cross entropy
+        loss = F.binary_cross_entropy(y_pred, y_true)
+    else:
+        with torch.no_grad():
+            loss = torch.tensor([0]).float()
+
     return loss

@@ -22,9 +22,12 @@ def unmold_meta(meta):
 def mold_image(image, config):
     """ Prepares RGB image with 0-255 values for input to model
     """
-    image = image - config.MEAN_PIXEL
-    image = torch.tensor(image)
-
+    if config.COMPAT:
+        image = torch.tensor(image, dtype=torch.double)
+        image = image - torch.tensor(config.MEAN_PIXEL, dtype=torch.double)
+    else:
+        image = image - config.MEAN_PIXEL
+        image = torch.tensor(image)
     # channel first
     image = image.permute(2, 0, 1).float()
     return image

@@ -91,6 +91,6 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     rpn_bbox[:len(boxes)] = boxes
 
     # Normalize
-    rpn_bbox /= config.RPN_BBOX_STD_DEV
+    rpn_bbox /= np.array(config.RPN_BBOX_STD_DEV, dtype=np.float32)
 
     return rpn_match, rpn_bbox
