@@ -48,13 +48,13 @@ Test (experimental)
 
 1. Clone this repository.
 
-        git clone https://github.com/simonm3/maskmm.git
+        git clone https://github.com/simonm3/maskr.git
 
 2. Download pretrained coco weights from [Google Drive](https://drive.google.com/open?id=1LXUgC2IZUYNEoXr05tdqyKFZY0pZyPDc).
         
 3. Build the nms and roialign binaries:
         
-        cd maskmm/maskmm/lib
+        cd maskr/maskr/lib
         ./make.sh
     
 4. Install the python package and dependencies in edit mode
