@@ -44,6 +44,7 @@ Test (experimental)
 * tests.ipynb - notebook to run pytests
 
 ## Installation
+
 1. Clone this repository.
 
         git clone https://github.com/simonm3/maskmm.git
