@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 from maskr.test.baseline import saveall
-from maskr.utils.batch import unbatch, batch_slice, pad
+from maskr.utils.batch import batch_slice, pad
 import logging
 log = logging.getLogger()
 
@@ -71,10 +71,10 @@ def mrcnn_class(target_class_ids, pred_class_logits):
     # add back the background class_ids
     target_class_ids = pad(target_class_ids, len(pred_class_logits))
 
-    if len(target_class_ids):
-        loss = F.cross_entropy(pred_class_logits, target_class_ids.long())
-    else:
+    if len(target_class_ids)==0:
         return None
+
+    loss = F.cross_entropy(pred_class_logits, target_class_ids.long())
     return loss
 
 @saveall

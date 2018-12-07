@@ -43,7 +43,7 @@ class Multiloss(LearnerCallback):
             else:
                 # this only happens if all the images in a batch have no targets.
                 log.error("loss calculation failed for whole batch")
-                mean_losses.append(torch.tensor(0).unsqueeze(0))
+                mean_losses.append(torch.tensor(0.))
 
         # calculate total and output
         mean_losses = [loss.unsqueeze(0) for loss in mean_losses]

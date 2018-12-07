@@ -4,10 +4,6 @@ from functools import wraps
 import logging
 log = logging.getLogger()
 
-def unbatch(vars):
-    """ combine first 2 dimensions of each var """
-    return [torch.cat(var) for var in vars]
-
 def listify(x):
     """ allow single item to be treated same as list. simplifies loops and list comprehensions """
     if isinstance(x, tuple):
@@ -76,13 +72,11 @@ def unpack(variables):
     return all_unpacked
 
 def batch_slice(slice=1):
-    """ converts a function to process batches
+    """ converts a function to process batches by iterating over first dimension of parameters
     slice=number of params to slice
-    packed=number of zero-padded params. None assumes all.
 
-    Split batch dimension and remove padding
     Process each item
-    Stack results by item. Pad with zeros if needed.
+    Return list of results
 
     Benefits
     ========
@@ -94,7 +88,6 @@ def batch_slice(slice=1):
     * example c, d = func(inputs, config, z=4)
     * inputs [[batch, a], [batch, b]]
     * return [[batch, c], [batch, d], ...] or single variable [batch, c]
-    * inputs and outputs are zeropadded and stacked
     """
     def batch_slice_inner(f):
         @wraps(f)

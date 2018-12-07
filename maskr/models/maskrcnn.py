@@ -77,8 +77,20 @@ class MaskRCNN(nn.Module):
             tgt_rpn_match, tgt_rpn_bbox, \
             gt_class_ids, gt_boxes, gt_masks = inputs
 
-            # zero padding was added as fastai only supports tensors
-            # batch dimension is a list with one tensor per item
+            # remove any images without any gt_class_ids
+            # todo is there a cleaner way to reject an image? unclean to zero pad then remove like this
+            keep = [i for i in range(len(gt_class_ids)) if gt_class_ids[i].gt(0).any()]
+            images = images[keep]
+            image_metas = image_metas[keep]
+            tgt_rpn_match = tgt_rpn_match[keep]
+            tgt_rpn_bbox = tgt_rpn_bbox[keep]
+            gt_class_ids = gt_class_ids[keep]
+            gt_boxes = gt_boxes[keep, :]
+            gt_masks = gt_masks[keep,:]
+
+            # fastai databunch/devicedataloader only support tensors
+            # zero padding was added to allow tensors to be stacked.
+            # after unpack the batch dimension is a list with one tensor per item
             gt_class_ids, gt_boxes, gt_masks = unpack([gt_class_ids, gt_boxes, gt_masks])
         else:
             images, image_metas = inputs
@@ -103,6 +115,12 @@ class MaskRCNN(nn.Module):
         outputs = list(zip(*layer_outputs))
         outputs = [torch.cat(list(o), dim=1) for o in outputs]
         rpn_class_logits, rpn_class, rpn_bbox = outputs
+
+        ############################################################################
+        # from here onwards each function uses batch_slice
+        # splits the batch, iterates over items, returns list of results
+        # batch dimension is the list
+        ############################################################################
 
         # Generate proposals [batch, N, (y1, x1, y2, x2)] in normalized coordinates, zero padded.
         proposal_count = config.POST_NMS_ROIS_TRAINING if targets else config.POST_NMS_ROIS_INFERENCE

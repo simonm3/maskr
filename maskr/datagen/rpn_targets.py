@@ -24,6 +24,10 @@ def build_rpn_targets(anchors, gt_class_ids, gt_boxes, config):
     # RPN bounding boxes: [max anchors per image, (dy, dx, log(dh), log(dw))]
     rpn_bbox = np.zeros((config.RPN_TRAIN_ANCHORS_PER_IMAGE, 4), dtype=np.float32)
 
+    # can happen if all items cropped out or image with no items
+    if (gt_class_ids == 0).all():
+        return rpn_match, rpn_bbox
+
     # Handle COCO crowds
     # A crowd box in COCO is a bounding box around several instances. Exclude
     # them from training. A crowd box is given a negative class ID.

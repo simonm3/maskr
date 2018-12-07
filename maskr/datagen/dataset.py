@@ -155,21 +155,16 @@ class Dataset(Dataset):
         """ return image, rpn_targets and ground truth """
         image_id = self.image_ids[image_index]
 
-        # load gt
+        # get gt and rpn_targets
         image, image_metas, gt_class_ids, gt_boxes, gt_masks = \
             self.load_image_gt(image_id, self.config.USE_MINI_MASK)
-
-        # can happen if all items cropped out or image with no items
-        if (gt_class_ids==0).all():
-            return [torch.empty(0)] * 7, 0
-
-        # rpn_targets
         rpn_match, rpn_bbox = build_rpn_targets(self.config.ANCHORS, gt_class_ids, gt_boxes, self.config)
 
         # zeropad so dataloader can stack batch. rpn_match and rpn_bbox already stackable
         gt_class_ids = batch.pad(from_numpy(gt_class_ids), self.config.MAX_GT_INSTANCES)
-        gt_boxes = batch.pad(from_numpy(gt_boxes), self.config.MAX_GT_INSTANCES)
-        gt_masks = batch.pad(from_numpy(gt_masks), self.config.MAX_GT_INSTANCES)
+        gt_boxes = batch.pad(from_numpy(gt_boxes), (self.config.MAX_GT_INSTANCES, 4))
+        mask_shape = self.config.MINI_MASK_SHAPE if self.config.USE_MINI_MASK else self.config.MASK_SHAPE
+        gt_masks = batch.pad(from_numpy(gt_masks), (self.config.MAX_GT_INSTANCES, *mask_shape))
 
         rpn_match = from_numpy(rpn_match)
         rpn_bbox = from_numpy(rpn_bbox)
