@@ -159,10 +159,9 @@ class Dataset(Dataset):
         image, image_metas, gt_class_ids, gt_boxes, gt_masks = \
             self.load_image_gt(image_id, self.config.USE_MINI_MASK)
 
-        # If no instances then skip. e.g. image has none of classes we care about.
+        # can happen if all items cropped out or image with no items
         if (gt_class_ids==0).all():
-            # todo fails in dataloader
-            return None
+            return [torch.empty(0)] * 7, 0
 
         # rpn_targets
         rpn_match, rpn_bbox = build_rpn_targets(self.config.ANCHORS, gt_class_ids, gt_boxes, self.config)
