@@ -75,6 +75,7 @@ def batch_slice(slice=1):
     """ converts a function to process batches by iterating over first dimension of parameters
     slice=number of params to slice
 
+    Slice the batch into items
     Process each item
     Return list of results
 

@@ -5,8 +5,6 @@ from maskr.models.maskrcnn import MaskRCNN
 from maskr.callbacks import *
 from maskr.samples.shapes.dataset import ShapesDataset
 
-ROOT_DIR = "/home/ubuntu/maskr"
-
 def get_data(config):
     " return a databunch based on config"
 
