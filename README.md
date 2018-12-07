@@ -51,13 +51,14 @@ Test (experimental)
 2. Download pretrained coco weights from [Google Drive](https://drive.google.com/open?id=1LXUgC2IZUYNEoXr05tdqyKFZY0pZyPDc).
         
 3. Build the nms and roialign binaries:
-    cd maskmm/maskmm/lib
-    ./make.sh
+        
+        cd maskmm/maskmm/lib
+        ./make.sh
     
 4. Install the python package and dependencies in edit mode
 
-    cd maskr
-    pip install -e .
+        cd maskr
+        pip install -e .
 
 ## Acknowledgements and links
 
