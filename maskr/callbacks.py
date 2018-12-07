@@ -31,8 +31,10 @@ class Multiloss(LearnerCallback):
             mrcnn_mask_loss = loss.mrcnn_mask(target_mask, target_class_ids, mrcnn_mask)
             losses.extend([mrcnn_class_loss, mrcnn_bbox_loss, mrcnn_mask_loss])
 
+        # aggregate batch. note stack as cannot cat zero dimension tensor.
+        losses = [torch.stack(loss).mean() for loss in losses]
         # output losses
-        total = sum(losses).squeeze()
+        total = sum(losses)
         losses = [total] + losses
         log.info([f"{x}={loss.item():0.4f}" for x, loss in zip(["tot", "rc", "rb", "c", "b", "m"],losses)])
         self.losses.append(losses)
