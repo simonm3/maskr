@@ -76,11 +76,6 @@ def mrcnn_class(target_class_ids, pred_class_logits):
     # remove batch dimension
     target_class_ids, pred_class_logits = unbatch([target_class_ids, pred_class_logits])
 
-    # remove zero padding rois. note include background rois with class_id=0
-    ix = pred_class_logits.ne(0).any(dim=0).nonzero()[:, 0]
-    target_class_ids = target_class_ids[ix]
-    pred_class_logits = pred_class_logits[ix]
-
     if len(target_class_ids):
         loss = F.cross_entropy(pred_class_logits, target_class_ids.long())
     else:
