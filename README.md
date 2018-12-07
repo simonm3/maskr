@@ -7,7 +7,8 @@ Includes:
 * Overview diagram that shows the key components of maskRCNN
 * Code cleaned up and structured as per the diagram to make it easy to understand and experiment with each part.
 * Works with pytorch v1 and fastai v1
-* Training and prediction working on nuke data from 2018 kaggle bowl
+* Training and prediction working on nuke data from 2018 kaggle bowl; training and prediction on synthetic
+ shapes data; and prediction on images using coco categories. 
 
 Todo:
 
