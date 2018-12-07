@@ -31,13 +31,26 @@ class Multiloss(LearnerCallback):
             mrcnn_mask_loss = loss.mrcnn_mask(target_mask, target_class_ids, mrcnn_mask)
             losses.extend([mrcnn_class_loss, mrcnn_bbox_loss, mrcnn_mask_loss])
 
-        # aggregate batch. note stack as cannot cat zero dimension tensor.
-        losses = [torch.stack(loss).mean() for loss in losses]
-        # output losses
-        total = sum(losses)
-        losses = [total] + losses
-        log.info([f"{x}={loss.item():0.4f}" for x, loss in zip(["tot", "rc", "rb", "c", "b", "m"],losses)])
-        self.losses.append(losses)
+        # get the mean loss for each variable
+        mean_losses = []
+        for lossvar in losses:
+            # No objects on image returns None loss. Perfect match returns 0 loss.
+            # Remove the None and unsqueeze to concatenate
+            losses = [itemloss.unsqueeze(0) for itemloss in lossvar if itemloss is not None]
+            if losses:
+                mean_loss = torch.cat(losses).mean()
+                mean_losses.append(mean_loss)
+            else:
+                # this only happens if all the images in a batch have no targets.
+                log.error("loss calculation failed for whole batch")
+                mean_losses.append(torch.tensor(0).unsqueeze(0))
+
+        # calculate total and output
+        mean_losses = [loss.unsqueeze(0) for loss in mean_losses]
+        total = torch.cat(mean_losses).sum()
+        mean_losses = [total] + mean_losses
+        log.info([f"{x}={loss.item():0.4f}" for x, loss in zip(["tot", "rc", "rb", "c", "b", "m"],mean_losses)])
+        self.losses.append(mean_losses)
 
         return total
 
