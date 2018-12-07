@@ -17,7 +17,7 @@ Todo:
 
 ## Structure
 
-[This diagram shows how it all fits together](maskr.jpg)
+![This diagram shows how it all fits together](maskr.jpg)
 Note that training and prediction follow slightly different paths.
 
 The core code reflects the diagram:
