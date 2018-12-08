@@ -26,8 +26,13 @@ import yaml
 import logging
 from logging.config import dictConfig
 home = expanduser("~")
-dictConfig(yaml.load(open(join(home, "logging.yaml"))))
 log = logging.getLogger()
+try:
+    dictConfig(yaml.load(open(join(home, "logging.yaml"))))
+except:
+    logging.basicConfig(level=logging.INFO)
+    log.warning("~/logging.yaml not found. using basic logging")
+
 if log.getEffectiveLevel() > logging.DEBUG:
     import warnings
     warnings.filterwarnings("ignore")

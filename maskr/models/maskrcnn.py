@@ -122,7 +122,7 @@ class MaskRCNN(nn.Module):
         # batch dimension is the list
         ############################################################################
 
-        # Generate proposals [batch, N, (y1, x1, y2, x2)] in normalized coordinates, zero padded.
+        # Generate proposals [batch, N, (y1, x1, y2, x2)] in normalized coordinates
         proposal_count = config.POST_NMS_ROIS_TRAINING if targets else config.POST_NMS_ROIS_INFERENCE
         rois = proposals(rpn_class, rpn_bbox, proposal_count,
                          self.anchors.to(config.DEVICE),

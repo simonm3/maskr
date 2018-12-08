@@ -37,9 +37,8 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
     """Return the RPN bounding box loss
 
     target_bbox: [batch, max positive anchors, (dy, dx, log(dh), log(dw))].
-        Uses 0 padding to fill in unsed bbox deltas.
-    rpn_match: [batch, anchors, 1]. Anchor match type. 1=positive,
-               -1=negative, 0=neutral anchor.
+    rpn_match: [batch, anchors, 1].
+                Anchor match type. 1=positive, -1=negative, 0=neutral anchor.
     rpn_bbox: [batch, anchors, (dy, dx, log(dh), log(dw))]
     """
     # Positive anchors contribute to the loss, but negative and
@@ -64,8 +63,7 @@ def rpn_bbox(target_bbox, rpn_match, rpn_bbox):
 def mrcnn_class(target_class_ids, pred_class_logits):
     """Loss for the classifier head of Mask RCNN.
 
-    target_class_ids: [batch, num_rois]. Integer class IDs. Uses zero
-        padding to fill in the numpy.
+    target_class_ids: [batch, num_rois].
     pred_class_logits: [batch, num_rois, num_classes]
     """
     # add back the background class_ids
@@ -109,10 +107,8 @@ def mrcnn_mask(target_masks, target_class_ids, pred_masks):
     """Mask binary cross-entropy loss for the masks head.
 
     target_masks: [batch, num_rois, height, width].
-        A float32 tensor of values 0 or 1. Uses zero padding to fill numpy.
-    target_class_ids: [batch, num_rois]. Integer class IDs. Zero padded.
-    pred_masks: [batch, proposals, height, width, num_classes] float32 tensor
-                with values from 0 to 1.
+    target_class_ids: [batch, num_rois]. Integer class IDs.
+    pred_masks: [batch, proposals, height, width, num_classes]
     """
     # Only positive ROIs contribute to the loss. And only
     # the class specific mask of each ROI.
